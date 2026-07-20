@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Run the full quality gate suite (ruff, mypy, pytest) inside a Linux
+# container via WSL2 Docker. Needed on Windows because
+# pytest-homeassistant-custom-component imports homeassistant.runner, which
+# imports the Unix-only `fcntl` module and cannot run natively there.
+#
+# Run this from a WSL2 Ubuntu shell (`wsl` from PowerShell), not from
+# Git Bash / PowerShell directly — it needs the `docker` and `rsync` on the
+# WSL side.
+#
+# We sync into a native (ext4) copy first rather than bind-mounting
+# /mnt/c/... directly: WSL2's DrvFs reports every file on a Windows-mounted
+# path as executable regardless of git's tracked mode, which makes ruff's
+# EXE002 rule fire on every source file. A native copy with normalized
+# permissions matches what a real Linux CI checkout gets.
+
+set -euo pipefail
+
+REPO_WIN="/mnt/c/Repo/SteamTime-Ha"
+REPO_NATIVE="${HOME}/steamtime"
+IMAGE="python:3.14-slim-trixie"
+
+mkdir -p "${REPO_NATIVE}"
+rsync -a --delete \
+    --exclude ".git" --exclude ".venv" --exclude "__pycache__" \
+    --exclude ".mypy_cache" --exclude ".pytest_cache" --exclude ".ruff_cache" \
+    "${REPO_WIN}/" "${REPO_NATIVE}/"
+find "${REPO_NATIVE}" -type f -exec chmod 644 {} +
+find "${REPO_NATIVE}" -type d -exec chmod 755 {} +
+chmod 755 "${REPO_NATIVE}"/scripts/*
+
+docker run --rm \
+    -v "${REPO_NATIVE}:/workspace" \
+    -w /workspace \
+    "${IMAGE}" \
+    bash -c "
+        pip install -q --root-user-action=ignore --upgrade pip &&
+        pip install -q --root-user-action=ignore -r requirements_common.txt -r requirements_dev.txt &&
+        echo '=== ruff check ===' && ruff check . &&
+        echo '=== ruff format ===' && ruff format --check . &&
+        echo '=== mypy ===' && mypy custom_components/steamtime &&
+        echo '=== pytest ===' && pytest -q
+    "

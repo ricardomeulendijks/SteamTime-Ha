@@ -39,3 +39,13 @@ This template ships with configuration for **two** dependency update tools. Pick
 Run `scripts/develop` to start a local Home Assistant instance with this
 integration loaded (config in `config/configuration.yaml`). Run `scripts/lint`
 before committing.
+
+### Running quality gates on Windows
+
+`homeassistant` (and therefore `pytest-homeassistant-custom-component`)
+doesn't import on native Windows — it pulls in the Unix-only `fcntl` module.
+If you're developing on Windows, run `scripts/test-docker` from a WSL2 Ubuntu
+shell (`wsl` from PowerShell) with Docker Engine installed there; it runs
+ruff, mypy, and the full pytest suite inside a Linux container. See the
+script's header comment for why it syncs to a native WSL copy first instead
+of bind-mounting the Windows path directly.
