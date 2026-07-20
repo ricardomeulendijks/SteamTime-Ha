@@ -1,0 +1,167 @@
+"""Tests for SessionManager (design §2, §3.4, §5.2)."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
+
+import pytest
+from pytest_homeassistant_custom_component.common import (
+    async_capture_events,
+    async_fire_time_changed,
+    async_mock_signal,
+)
+
+from custom_components.steamtime.const import (
+    EVENT_ADD_DISH,
+    EVENT_DISH_DONE,
+    EVENT_SESSION_CANCELLED,
+    EVENT_SESSION_COMPLETED,
+    SIGNAL_SESSION_UPDATED,
+)
+from custom_components.steamtime.engine import DishSpec, DishStatus
+from custom_components.steamtime.session_manager import (
+    SessionAlreadyRunningError,
+    SessionManager,
+)
+from custom_components.steamtime.storage import HistoryStore, SessionStore
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+
+
+def _fish(minutes: int = 1) -> DishSpec:
+    return DishSpec(
+        name_en="Fish",
+        name_nl="Vis",
+        steam_minutes=minutes,
+        temperature=90,
+        category="fish",
+    )
+
+
+def _peas(minutes: int = 1) -> DishSpec:
+    return DishSpec(
+        name_en="Peas",
+        name_nl="Erwten",
+        steam_minutes=minutes,
+        temperature=100,
+        category="vegetables",
+    )
+
+
+async def _make_manager(hass: HomeAssistant) -> SessionManager:
+    history = HistoryStore(hass)
+    await history.async_load()
+    return SessionManager(hass, SessionStore(hass), history)
+
+
+async def test_start_session_fires_add_event_for_first_dish_and_persists(
+    hass: HomeAssistant, hass_storage: dict[str, Any]
+) -> None:
+    manager = await _make_manager(hass)
+    add_events = async_capture_events(hass, EVENT_ADD_DISH)
+    signals = async_mock_signal(hass, SIGNAL_SESSION_UPDATED)
+
+    await manager.async_start_session([_fish(20), _peas(10)])
+
+    assert manager.state is not None
+    assert manager.state.dishes[0].status is DishStatus.READY_TO_ADD
+    assert manager.state.dishes[1].status is DishStatus.PENDING
+    assert len(add_events) == 1
+    assert add_events[0].data["dish_name"] == "Fish"
+    assert add_events[0].data["temperature"] == 90
+    assert add_events[0].data["steam_minutes"] == 20
+    assert len(signals) == 1
+    assert "steamtime.session" in hass_storage
+
+    await manager.async_unload()  # d2 is still pending; cancel its armed timer
+
+
+async def test_start_session_raises_if_already_running(hass: HomeAssistant) -> None:
+    manager = await _make_manager(hass)
+    await manager.async_start_session([_fish()])
+
+    with pytest.raises(SessionAlreadyRunningError):
+        await manager.async_start_session([_fish()])
+
+
+async def test_confirm_dish_warns_on_non_ready_or_unknown(
+    hass: HomeAssistant, caplog: pytest.LogCaptureFixture
+) -> None:
+    manager = await _make_manager(hass)
+    await manager.async_start_session([_fish(20), _peas(10)])
+
+    await manager.async_confirm_dish("d2", 0.0)  # still pending, not ready_to_add
+    assert manager.state is not None
+    assert manager.state.dishes[1].status is DishStatus.PENDING
+    assert "not ready to add" in caplog.text
+
+    await manager.async_confirm_dish("unknown", 0.0)
+    assert "not ready to add" in caplog.text
+
+    await manager.async_unload()  # d2 is still pending; cancel its armed timer
+
+
+async def test_confirm_dish_with_no_session_running_warns(
+    hass: HomeAssistant, caplog: pytest.LogCaptureFixture
+) -> None:
+    manager = await _make_manager(hass)
+    await manager.async_confirm_dish("d1", 0.0)
+    assert "no session running" in caplog.text
+
+
+async def test_cancel_session_fires_cancelled_event_and_clears_state(
+    hass: HomeAssistant, hass_storage: dict[str, Any]
+) -> None:
+    manager = await _make_manager(hass)
+    await manager.async_start_session([_fish()])
+    cancelled_events = async_capture_events(hass, EVENT_SESSION_CANCELLED)
+
+    await manager.async_cancel_session()
+
+    assert manager.state is None
+    assert len(cancelled_events) == 1
+    assert "steamtime.session" not in hass_storage
+    assert "steamtime.history" not in hass_storage  # cancellation writes no history
+
+
+async def test_cancel_session_with_no_session_running_warns(
+    hass: HomeAssistant, caplog: pytest.LogCaptureFixture
+) -> None:
+    manager = await _make_manager(hass)
+    await manager.async_cancel_session()
+    assert "no session running" in caplog.text
+
+
+async def test_full_lifecycle_via_timer_confirm_then_done_then_completed(
+    hass: HomeAssistant, hass_storage: dict[str, Any]
+) -> None:
+    manager = await _make_manager(hass)
+    add_events = async_capture_events(hass, EVENT_ADD_DISH)
+    done_events = async_capture_events(hass, EVENT_DISH_DONE)
+    completed_events = async_capture_events(hass, EVENT_SESSION_COMPLETED)
+
+    await manager.async_start_session([_fish(1)])
+    assert manager.state is not None
+    dish_id = add_events[0].data["dish_id"]
+
+    confirmed_at = manager.state.dishes[0].planned_add_at
+    await manager.async_confirm_dish(dish_id, confirmed_at)
+    assert manager.state is not None
+    assert manager.state.dishes[0].status is DishStatus.COOKING
+
+    done_at = manager.state.dishes[0].done_at
+    assert done_at is not None
+
+    # Fire the armed timer a moment past doneAt, as if real time had passed.
+    async_fire_time_changed(hass, datetime.fromtimestamp(done_at + 1, tz=UTC))
+    await hass.async_block_till_done()
+
+    assert manager.state is None
+    assert len(done_events) == 1
+    assert len(completed_events) == 1
+    history_id = completed_events[0].data["history_id"]
+    assert history_id is not None
+    assert "steamtime.session" not in hass_storage
+    assert hass_storage["steamtime.history"]["data"][0]["id"] == history_id

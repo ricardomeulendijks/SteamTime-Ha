@@ -9,20 +9,40 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .data import SteamTimeData
+from .session_manager import SessionManager
+from .storage import DishLibraryStore, HistoryStore, SessionStore
+
 if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.const import Platform
     from homeassistant.core import HomeAssistant
+
+    from .data import SteamTimeConfigEntry
 
 PLATFORMS: list[Platform] = []
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: SteamTimeConfigEntry) -> bool:
     """Set up this integration using UI."""
+    dish_library = DishLibraryStore(hass)
+    history = HistoryStore(hass)
+    await dish_library.async_load()
+    await history.async_load()
+
+    session_manager = SessionManager(hass, SessionStore(hass), history)
+    await session_manager.async_setup()
+
+    entry.runtime_data = SteamTimeData(
+        dish_library=dish_library,
+        history=history,
+        session_manager=session_manager,
+    )
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: SteamTimeConfigEntry) -> bool:
     """Handle removal of an entry."""
+    await entry.runtime_data.session_manager.async_unload()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
