@@ -1,0 +1,82 @@
+[
+  {
+    "id": "broccoli",
+    "name_en": "Broccoli",
+    "name_nl": "Broccoli",
+    "steam_minutes": 10,
+    "temperature": 100,
+    "category": "vegetables"
+  },
+  {
+    "id": "carrots",
+    "name_en": "Carrots",
+    "name_nl": "Wortelen",
+    "steam_minutes": 15,
+    "temperature": 100,
+    "category": "vegetables"
+  },
+  {
+    "id": "green_beans",
+    "name_en": "Green Beans",
+    "name_nl": "Sperziebonen",
+    "steam_minutes": 15,
+    "temperature": 100,
+    "category": "vegetables"
+  },
+  {
+    "id": "potatoes",
+    "name_en": "Potatoes",
+    "name_nl": "Aardappelen",
+    "steam_minutes": 25,
+    "temperature": 100,
+    "category": "vegetables"
+  },
+  {
+    "id": "salmon",
+    "name_en": "Salmon Fillet",
+    "name_nl": "Zalmfilet",
+    "steam_minutes": 15,
+    "temperature": 90,
+    "category": "fish"
+  },
+  {
+    "id": "cod",
+    "name_en": "Cod Fillet",
+    "name_nl": "Kabeljauwfilet",
+    "steam_minutes": 15,
+    "temperature": 90,
+    "category": "fish"
+  },
+  {
+    "id": "chicken_breast",
+    "name_en": "Chicken Breast",
+    "name_nl": "Kipfilet",
+    "steam_minutes": 25,
+    "temperature": 100,
+    "category": "meat"
+  },
+  {
+    "id": "meatballs",
+    "name_en": "Meatballs",
+    "name_nl": "Gehaktballen",
+    "steam_minutes": 20,
+    "temperature": 100,
+    "category": "meat"
+  },
+  {
+    "id": "rice",
+    "name_en": "Rice",
+    "name_nl": "Rijst",
+    "steam_minutes": 20,
+    "temperature": 100,
+    "category": "other"
+  },
+  {
+    "id": "eggs",
+    "name_en": "Eggs",
+    "name_nl": "Eieren",
+    "steam_minutes": 10,
+    "temperature": 100,
+    "category": "other"
+  }
+]
