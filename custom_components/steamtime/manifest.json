@@ -1,0 +1,16 @@
+{
+  "domain": "steamtime",
+  "name": "SteamTime",
+  "codeowners": [
+    "@ricardomeulendijks"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/ricardomeulendijks/SteamTime-Ha",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/ricardomeulendijks/SteamTime-Ha/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.0"
+}

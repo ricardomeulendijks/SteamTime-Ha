@@ -1,0 +1,12 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "description": "Stel SteamTime in, je kookassistent voor de stoomoven."
+            }
+        },
+        "abort": {
+            "already_configured": "SteamTime is al geconfigureerd."
+        }
+    }
+}

@@ -1,0 +1,12 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "description": "Set up SteamTime, your steam-oven cooking companion."
+            }
+        },
+        "abort": {
+            "already_configured": "SteamTime is already configured."
+        }
+    }
+}
