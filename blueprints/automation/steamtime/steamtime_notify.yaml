@@ -7,18 +7,21 @@ blueprint:
     call, sends a "dish is done" alert and a session-complete summary, and
     clears stale add-notifications if the session is cancelled.
 
-    Import once, point it at your phone's notify target(s), and the whole
+    Import once, point it at your phone's notify service(s), and the whole
     confirm-from-lock-screen flow works with no further setup.
   domain: automation
   input:
     notify_targets:
-      name: Notify target(s)
+      name: Notify service(s)
       description: >-
-        One or more notify entities to send SteamTime alerts to (e.g. your
-        phone's companion-app notify entity).
+        One or more mobile_app notify services to send SteamTime alerts to,
+        e.g. notify.mobile_app_iphone (find yours under Settings > Devices &
+        Services > Mobile App > your device, or search "mobile_app" in
+        Developer Tools > Actions). This must be the legacy per-device
+        service, not a notify.* entity — only the per-device service
+        supports actionable buttons, tags, and critical alerts.
       selector:
-        entity:
-          domain: notify
+        text:
           multiple: true
     critical_add_alerts:
       name: Critical add alerts
@@ -82,28 +85,32 @@ actions:
           - condition: trigger
             id: add_dish
         sequence:
-          - action: notify.send_message
-            target:
-              entity_id: !input notify_targets
-            data:
-              title: Add to the oven
-              message: >-
-                Add {{ trigger.event.data.dish_name }} to the oven —
-                {{ trigger.event.data.temperature }} °C
-              tag: "steamtime_{{ trigger.event.data.dish_id }}"
-              actions:
-                - action: "steamtime_confirm_{{ trigger.event.data.dish_id }}"
-                  title: Confirm added
-              push:
-                interruption-level: >-
-                  {{ 'critical' if critical_add_alerts else 'active' }}
-                sound:
-                  name: default
-                  critical: "{{ 1 if critical_add_alerts else 0 }}"
-                  volume: "{{ 1.0 if critical_add_alerts else 0.5 }}"
-              priority: "{{ 'high' if critical_add_alerts else 'normal' }}"
-              ttl: "{{ 0 if critical_add_alerts else 2419200 }}"
-              channel: "{{ 'alarm_stream' if critical_add_alerts else 'default' }}"
+          - repeat:
+              for_each: !input notify_targets
+              sequence:
+                - action: "{{ repeat.item }}"
+                  data:
+                    title: Add to the oven
+                    message: >-
+                      Add {{ trigger.event.data.dish_name }} to the oven —
+                      {{ trigger.event.data.temperature }} °C
+                    data:
+                      tag: "steamtime_{{ trigger.event.data.dish_id }}"
+                      actions:
+                        - action: >-
+                            steamtime_confirm_{{ trigger.event.data.dish_id }}
+                          title: Confirm added
+                      push:
+                        interruption-level: >-
+                          {{ 'critical' if critical_add_alerts else 'active' }}
+                        sound:
+                          name: default
+                          critical: "{{ 1 if critical_add_alerts else 0 }}"
+                          volume: "{{ 1.0 if critical_add_alerts else 0.5 }}"
+                      priority: "{{ 'high' if critical_add_alerts else 'normal' }}"
+                      ttl: "{{ 0 if critical_add_alerts else 2419200 }}"
+                      channel: >-
+                        {{ 'alarm_stream' if critical_add_alerts else 'default' }}
           - if:
               - condition: template
                 value_template: >-
@@ -135,25 +142,28 @@ actions:
           - condition: trigger
             id: dish_done
         sequence:
-          - action: notify.send_message
-            target:
-              entity_id: !input notify_targets
-            data:
-              title: Done
-              message: "{{ trigger.event.data.dish_name }} is done"
-              tag: "steamtime_{{ trigger.event.data.dish_id }}"
+          - repeat:
+              for_each: !input notify_targets
+              sequence:
+                - action: "{{ repeat.item }}"
+                  data:
+                    title: Done
+                    message: "{{ trigger.event.data.dish_name }} is done"
+                    data:
+                      tag: "steamtime_{{ trigger.event.data.dish_id }}"
 
       # Every dish is done.
       - conditions:
           - condition: trigger
             id: session_completed
         sequence:
-          - action: notify.send_message
-            target:
-              entity_id: !input notify_targets
-            data:
-              title: SteamTime
-              message: Session complete — everything's ready!
+          - repeat:
+              for_each: !input notify_targets
+              sequence:
+                - action: "{{ repeat.item }}"
+                  data:
+                    title: SteamTime
+                    message: Session complete — everything's ready!
 
       # Session cancelled: clear any stale add-notifications, then confirm.
       - conditions:
@@ -163,15 +173,22 @@ actions:
           - repeat:
               for_each: "{{ trigger.event.data.dish_ids }}"
               sequence:
-                - action: notify.send_message
-                  target:
-                    entity_id: !input notify_targets
+                # Capture the outer loop's item before the inner repeat
+                # below shadows `repeat.item` with its own.
+                - variables:
+                    dish_id_to_clear: "{{ repeat.item }}"
+                - repeat:
+                    for_each: !input notify_targets
+                    sequence:
+                      - action: "{{ repeat.item }}"
+                        data:
+                          message: clear_notification
+                          data:
+                            tag: "steamtime_{{ dish_id_to_clear }}"
+          - repeat:
+              for_each: !input notify_targets
+              sequence:
+                - action: "{{ repeat.item }}"
                   data:
-                    message: clear_notification
-                    tag: "steamtime_{{ repeat.item }}"
-          - action: notify.send_message
-            target:
-              entity_id: !input notify_targets
-            data:
-              title: SteamTime
-              message: Session cancelled
+                    title: SteamTime
+                    message: Session cancelled
