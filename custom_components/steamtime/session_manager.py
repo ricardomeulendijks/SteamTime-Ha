@@ -9,6 +9,7 @@ dispatcher signal.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -88,16 +89,23 @@ class SessionManager:
         self._history_store = history_store
         self.state: SessionState | None = None
         self._unsub_timer: CALLBACK_TYPE | None = None
+        # Serializes every state transition below. `_process` awaits a store
+        # write with self.state left unset (start) or unchanged (confirm/
+        # cancel) across that await, so without this lock two concurrent
+        # calls (e.g. a double-tapped start_session) could both pass their
+        # guard check before either one's effect on self.state lands.
+        self._lock = asyncio.Lock()
 
     async def async_setup(self) -> None:
         """Restore a persisted live session, fast-forwarding it (design §5.2)."""
-        data = await self._session_store.async_load()
-        if data is None:
-            return
+        async with self._lock:
+            data = await self._session_store.async_load()
+            if data is None:
+                return
 
-        state = session_from_dict(data)
-        state, effects = advance(state, _now())
-        await self._process(state, effects)
+            state = session_from_dict(data)
+            state, effects = advance(state, _now())
+            await self._process(state, effects)
 
     async def async_unload(self) -> None:
         """Cancel the armed timer callback, if any."""
@@ -105,42 +113,48 @@ class SessionManager:
 
     async def async_start_session(self, dish_specs: Sequence[DishSpec]) -> None:
         """Build and start a new session. Raises if one is already running."""
-        if self.state is not None:
-            raise SessionAlreadyRunningError
+        async with self._lock:
+            if self.state is not None:
+                raise SessionAlreadyRunningError
 
-        state = build_session(uuid4().hex, dish_specs, _now())
-        state, effects = advance(state, _now())
-        await self._process(state, effects)
+            state = build_session(uuid4().hex, dish_specs, _now())
+            state, effects = advance(state, _now())
+            await self._process(state, effects)
 
     async def async_confirm_dish(self, dish_id: str, at: float) -> None:
         """Confirm a dish. A no-op warning if not ready, unknown, or no session."""
-        if self.state is None:
-            LOGGER.warning("confirm_dish(%s): no session running", dish_id)
-            return
+        async with self._lock:
+            if self.state is None:
+                LOGGER.warning("confirm_dish(%s): no session running", dish_id)
+                return
 
-        state, warning = confirm_dish(self.state, dish_id, at)
-        if warning:
-            LOGGER.warning("confirm_dish(%s): not ready to add, or unknown", dish_id)
-            return
+            state, warning = confirm_dish(self.state, dish_id, at)
+            if warning:
+                LOGGER.warning(
+                    "confirm_dish(%s): not ready to add, or unknown", dish_id
+                )
+                return
 
-        state, effects = advance(state, at)
-        await self._process(state, effects)
+            state, effects = advance(state, at)
+            await self._process(state, effects)
 
     async def async_cancel_session(self) -> None:
         """Cancel the running session. A no-op if none is running."""
-        if self.state is None:
-            LOGGER.warning("cancel_session: no session running")
-            return
+        async with self._lock:
+            if self.state is None:
+                LOGGER.warning("cancel_session: no session running")
+                return
 
-        state, effects = cancel_session(self.state)
-        await self._process(state, effects)
+            state, effects = cancel_session(self.state)
+            await self._process(state, effects)
 
     async def _on_timer(self, fire_time: datetime) -> None:
         """Handle an armed timer firing: re-evaluate and process due effects."""
-        if self.state is None:
-            return
-        state, effects = advance(self.state, fire_time.timestamp())
-        await self._process(state, effects)
+        async with self._lock:
+            if self.state is None:
+                return
+            state, effects = advance(self.state, fire_time.timestamp())
+            await self._process(state, effects)
 
     async def _process(self, state: SessionState, effects: Sequence[Effect]) -> None:
         """

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -84,6 +85,30 @@ async def test_start_session_raises_if_already_running(hass: HomeAssistant) -> N
 
     with pytest.raises(SessionAlreadyRunningError):
         await manager.async_start_session([_fish()])
+
+
+async def test_concurrent_start_session_calls_are_serialized(
+    hass: HomeAssistant,
+) -> None:
+    """Design §10: are transitions serialized against a second service call?
+
+    Two concurrent start_session calls must not both see "no session
+    running" — exactly one may succeed, the other must raise, never two
+    sessions silently racing each other into self.state.
+    """
+    manager = await _make_manager(hass)
+
+    results = await asyncio.gather(
+        manager.async_start_session([_fish()]),
+        manager.async_start_session([_peas()]),
+        return_exceptions=True,
+    )
+
+    successes = [r for r in results if r is None]
+    failures = [r for r in results if isinstance(r, SessionAlreadyRunningError)]
+    assert len(successes) == 1
+    assert len(failures) == 1
+    assert manager.state is not None
 
 
 async def test_confirm_dish_warns_on_non_ready_or_unknown(

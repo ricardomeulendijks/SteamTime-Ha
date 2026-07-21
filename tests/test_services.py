@@ -77,6 +77,14 @@ async def test_start_session_unknown_dish_id_raises(hass: HomeAssistant) -> None
 
 
 @pytest.mark.usefixtures("entry")
+async def test_start_session_with_empty_dish_list_raises(hass: HomeAssistant) -> None:
+    with pytest.raises(vol.Invalid):
+        await hass.services.async_call(
+            DOMAIN, SERVICE_START_SESSION, {"dishes": []}, blocking=True
+        )
+
+
+@pytest.mark.usefixtures("entry")
 async def test_start_session_already_running_raises(hass: HomeAssistant) -> None:
     await hass.services.async_call(
         DOMAIN,
@@ -208,6 +216,55 @@ async def test_update_dish_replaces_fields(
     updated = entry.runtime_data.dish_library.custom_dishes[0]
     assert updated["name_en"] == "Asparagus (green)"
     assert updated["steam_minutes"] == 14
+
+
+async def test_editing_a_custom_dish_mid_session_does_not_affect_it(
+    hass: HomeAssistant, entry: MockConfigEntry
+) -> None:
+    """Design §10: the session holds copies, not references, to library dishes."""
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_ADD_DISH,
+        {
+            "name": "Asparagus",
+            "minutes": 12,
+            "temperature": 100,
+            "category": "vegetables",
+        },
+        blocking=True,
+    )
+    dish_id = entry.runtime_data.dish_library.custom_dishes[0]["id"]
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_START_SESSION,
+        {"dishes": [{"dish_id": dish_id}]},
+        blocking=True,
+    )
+    manager = entry.runtime_data.session_manager
+    assert manager.state is not None
+    session_dish = manager.state.dishes[0]
+    assert session_dish.name_en == "Asparagus"
+    assert session_dish.steam_minutes == 12
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_UPDATE_DISH,
+        {
+            "dish_id": dish_id,
+            "name": "Asparagus (renamed)",
+            "minutes": 30,
+            "temperature": 150,
+            "category": "other",
+        },
+        blocking=True,
+    )
+
+    # The running session's dish is completely unaffected by the edit.
+    assert session_dish.name_en == "Asparagus"
+    assert session_dish.steam_minutes == 12
+    assert manager.state.dishes[0].name_en == "Asparagus"
+    assert manager.state.dishes[0].steam_minutes == 12
 
 
 @pytest.mark.usefixtures("entry")
