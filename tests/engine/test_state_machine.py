@@ -41,6 +41,71 @@ def test_late_confirmation_shifts_only_its_own_dish() -> None:
     assert by_id["d2"].done_at == late_confirm_at + 10 * 60
 
 
+def test_late_first_confirmation_shifts_still_pending_dishes_forward() -> None:
+    # d1 = Potatoes (20 min, offset 0), d2 = Peas (10 min, offset 10 min).
+    state = build_session("s1", [dish("Potatoes", 20), dish("Peas", 10)], now=T0)
+    state, _ = advance(state, T0)  # d1 ready immediately; d2 still pending
+
+    # d1 confirmed 30s late — the walk-to-the-oven delay.
+    late_anchor_confirm_at = T0 + 30
+    state, warning = confirm_dish(state, "d1", late_anchor_confirm_at)
+    assert warning is False
+
+    by_id = {d.id: d for d in state.dishes}
+    assert by_id["d1"].done_at == late_anchor_confirm_at + 20 * 60
+    # d2's planned_add_at shifts forward by the same 30s so it still becomes
+    # ready 10 minutes after d1 actually went in, not 10 minutes after the
+    # original (now-stale) session-start anchor.
+    assert by_id["d2"].planned_add_at == T0 + 600 + 30
+    assert by_id["d2"].status is DishStatus.PENDING
+
+
+def test_on_time_first_confirmation_does_not_shift_pending_dishes() -> None:
+    state = build_session("s1", [dish("Potatoes", 20), dish("Peas", 10)], now=T0)
+    state, _ = advance(state, T0)
+    state, _ = confirm_dish(state, "d1", T0)  # confirmed exactly on time
+
+    by_id = {d.id: d for d in state.dishes}
+    assert by_id["d2"].planned_add_at == T0 + 600
+
+
+def test_late_anchor_confirmation_does_not_shift_already_ready_dishes() -> None:
+    # d2's own offset (5 min) passes before d1 (offset 0, 20 min) is finally
+    # confirmed 10 minutes late — d2 is already `ready_to_add` by then and
+    # must not be shifted again; its alert already fired.
+    state = build_session("s1", [dish("Potatoes", 20), dish("Peas", 15)], now=T0)
+    state, _ = advance(state, T0)  # only d1 ready
+
+    state, effects = advance(state, T0 + 300)  # 5 min later: d2 becomes ready
+    assert {e.dish_id for e in effects if isinstance(e, AddAlertEffect)} == {"d2"}
+    d2_planned_before = next(d for d in state.dishes if d.id == "d2").planned_add_at
+
+    state, _ = confirm_dish(state, "d1", T0 + 600)  # d1 confirmed 10 min late
+
+    by_id = {d.id: d for d in state.dishes}
+    assert by_id["d2"].planned_add_at == d2_planned_before
+    assert by_id["d2"].status is DishStatus.READY_TO_ADD
+
+
+def test_tied_offset_zero_dishes_only_shift_pending_once() -> None:
+    # d1 (Potatoes, 20 min) and d2 (Fish, 20 min) share offset 0 and are both
+    # ready immediately; d3 (Peas, 5 min) has offset 15 min and stays pending.
+    state = build_session(
+        "s1", [dish("Potatoes", 20), dish("Fish", 20), dish("Peas", 5)], now=T0
+    )
+    state, _ = advance(state, T0)
+
+    state, _ = confirm_dish(state, "d1", T0 + 60)  # first anchor, 60s late
+    by_id = {d.id: d for d in state.dishes}
+    assert by_id["d3"].planned_add_at == T0 + 900 + 60
+
+    # d2 (the other offset-0 dish) confirmed later still must not shift d3
+    # a second time.
+    state, _ = confirm_dish(state, "d2", T0 + 200)
+    by_id = {d.id: d for d in state.dishes}
+    assert by_id["d3"].planned_add_at == T0 + 900 + 60
+
+
 def test_confirm_on_non_ready_dish_is_warning_no_op() -> None:
     state = build_session("s1", [dish("Potatoes", 20), dish("Peas", 10)], now=T0)
     state, _ = advance(state, T0)  # only d1 is ready_to_add; d2 still pending

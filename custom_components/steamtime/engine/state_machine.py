@@ -91,6 +91,14 @@ def confirm_dish(
     Returns `(state, warning)`. `warning` is True for a no-op: no session
     running, unknown dish id, or a dish not currently `ready_to_add` — a
     double-tapped confirmation must never raise.
+
+    The first confirmation of the session is always one of the offset-0
+    dishes (no other dish can be `ready_to_add` yet). If it happened later
+    than `sessionStart`, every still-`pending` dish's `planned_add_at` shifts
+    forward by that same delay — a one-time re-anchor so a slow start to
+    physically add the first dish doesn't silently desync the "finish
+    together" plan (design §3.1). Dishes already `ready_to_add` are left
+    alone; their alert already fired.
     """
     if state.status is not SessionStatus.RUNNING:
         return state, True
@@ -99,9 +107,23 @@ def confirm_dish(
     if dish is None or dish.status is not DishStatus.READY_TO_ADD:
         return state, True
 
+    is_anchor_dish = dish.planned_add_at == state.started_at
+    anchor_already_confirmed = any(
+        d.confirmed_at is not None and d.planned_add_at == state.started_at
+        for d in state.dishes
+    )
+
     dish.status = DishStatus.COOKING
     dish.confirmed_at = at
     dish.done_at = at + dish.steam_minutes * 60
+
+    if is_anchor_dish and not anchor_already_confirmed:
+        delay = at - state.started_at
+        if delay > 0:
+            for other in state.dishes:
+                if other.status is DishStatus.PENDING:
+                    other.planned_add_at += delay
+
     return state, False
 
 
