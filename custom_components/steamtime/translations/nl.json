@@ -8,5 +8,121 @@
         "abort": {
             "already_configured": "SteamTime is al geconfigureerd."
         }
+    },
+    "services": {
+        "start_session": {
+            "name": "Sessie starten",
+            "description": "Start een nieuwe kooksessie met de opgegeven gerechten, automatisch gevolgordend op langste stoomtijd eerst.",
+            "fields": {
+                "dishes": {
+                    "name": "Gerechten",
+                    "description": "Elk item is een bibliotheekverwijzing ({dish_id, minutes?}) of een losstaand gerecht ({name, minutes, temperature?})."
+                }
+            }
+        },
+        "confirm_dish": {
+            "name": "Toevoegen bevestigen",
+            "description": "Bevestig dat een gerecht daadwerkelijk in de oven is geplaatst, waardoor het aftellen start.",
+            "fields": {
+                "dish_id": {
+                    "name": "Gerecht-ID",
+                    "description": "De sessiegebonden gerecht-id (bijv. d2)."
+                }
+            }
+        },
+        "cancel_session": {
+            "name": "Sessie annuleren",
+            "description": "Annuleer de lopende sessie. Er wordt niets naar de geschiedenis geschreven."
+        },
+        "add_dish": {
+            "name": "Gerecht toevoegen",
+            "description": "Voeg een aangepast gerecht toe aan de bibliotheek.",
+            "fields": {
+                "name": {
+                    "name": "Naam",
+                    "description": "1-100 tekens."
+                },
+                "minutes": {
+                    "name": "Stoomminuten",
+                    "description": "1-600 minuten."
+                },
+                "temperature": {
+                    "name": "Temperatuur",
+                    "description": "1-250 °C."
+                },
+                "category": {
+                    "name": "Categorie",
+                    "description": "Een van vegetables, fish, meat, other."
+                }
+            }
+        },
+        "update_dish": {
+            "name": "Gerecht bijwerken",
+            "description": "Vervang de velden van een aangepast gerecht. Voorgedefinieerde gerechten kunnen niet worden bijgewerkt.",
+            "fields": {
+                "dish_id": {
+                    "name": "Gerecht-ID",
+                    "description": "De id van het aangepaste gerecht."
+                },
+                "name": {
+                    "name": "Naam",
+                    "description": "1-100 tekens."
+                },
+                "minutes": {
+                    "name": "Stoomminuten",
+                    "description": "1-600 minuten."
+                },
+                "temperature": {
+                    "name": "Temperatuur",
+                    "description": "1-250 °C."
+                },
+                "category": {
+                    "name": "Categorie",
+                    "description": "Een van vegetables, fish, meat, other."
+                }
+            }
+        },
+        "remove_dish": {
+            "name": "Gerecht verwijderen",
+            "description": "Verwijder een aangepast gerecht uit de bibliotheek. Voorgedefinieerde gerechten kunnen niet worden verwijderd.",
+            "fields": {
+                "dish_id": {
+                    "name": "Gerecht-ID",
+                    "description": "De id van het aangepaste gerecht."
+                }
+            }
+        },
+        "get_dishes": {
+            "name": "Gerechten ophalen",
+            "description": "Geeft de samengevoegde bibliotheek van voorgedefinieerde en aangepaste gerechten terug."
+        },
+        "get_history": {
+            "name": "Geschiedenis ophalen",
+            "description": "Geeft de geschiedenis van voltooide sessies terug."
+        },
+        "restart_session": {
+            "name": "Sessie herstarten",
+            "description": "Start een nieuwe sessie op basis van een bevroren momentopname uit de geschiedenis.",
+            "fields": {
+                "history_id": {
+                    "name": "Geschiedenis-ID",
+                    "description": "De id van het geschiedenisitem."
+                }
+            }
+        }
+    },
+    "exceptions": {
+        "session_already_running": {
+            "message": "Er loopt al een sessie."
+        },
+        "unknown_dish_id": {
+            "message": "Onbekende gerecht-id: {dish_id}"
+        },
+        "unknown_or_predefined_dish_id": {
+            "message": "Geen aangepast gerecht met id {dish_id} (voorgedefinieerde gerechten kunnen niet worden gewijzigd)."
+        },
+        "unknown_history_id": {
+            "message": "Geen geschiedenisitem met id {history_id}."
+        }
     }
 }

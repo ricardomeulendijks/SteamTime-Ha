@@ -8,5 +8,121 @@
         "abort": {
             "already_configured": "SteamTime is already configured."
         }
+    },
+    "services": {
+        "start_session": {
+            "name": "Start session",
+            "description": "Start a new cooking session with the given dishes, auto-sequenced longest steam time first.",
+            "fields": {
+                "dishes": {
+                    "name": "Dishes",
+                    "description": "Each entry is either a library reference ({dish_id, minutes?}) or an inline one-off dish ({name, minutes, temperature?})."
+                }
+            }
+        },
+        "confirm_dish": {
+            "name": "Confirm dish added",
+            "description": "Confirm a dish was physically added to the oven, starting its countdown.",
+            "fields": {
+                "dish_id": {
+                    "name": "Dish ID",
+                    "description": "The session-scoped dish id (e.g. d2)."
+                }
+            }
+        },
+        "cancel_session": {
+            "name": "Cancel session",
+            "description": "Cancel the running session. Nothing is written to history."
+        },
+        "add_dish": {
+            "name": "Add dish",
+            "description": "Add a custom dish to the library.",
+            "fields": {
+                "name": {
+                    "name": "Name",
+                    "description": "1-100 characters."
+                },
+                "minutes": {
+                    "name": "Steam minutes",
+                    "description": "1-600 minutes."
+                },
+                "temperature": {
+                    "name": "Temperature",
+                    "description": "1-250 °C."
+                },
+                "category": {
+                    "name": "Category",
+                    "description": "One of vegetables, fish, meat, other."
+                }
+            }
+        },
+        "update_dish": {
+            "name": "Update dish",
+            "description": "Replace a custom dish's fields. Predefined dishes cannot be updated.",
+            "fields": {
+                "dish_id": {
+                    "name": "Dish ID",
+                    "description": "The custom dish's id."
+                },
+                "name": {
+                    "name": "Name",
+                    "description": "1-100 characters."
+                },
+                "minutes": {
+                    "name": "Steam minutes",
+                    "description": "1-600 minutes."
+                },
+                "temperature": {
+                    "name": "Temperature",
+                    "description": "1-250 °C."
+                },
+                "category": {
+                    "name": "Category",
+                    "description": "One of vegetables, fish, meat, other."
+                }
+            }
+        },
+        "remove_dish": {
+            "name": "Remove dish",
+            "description": "Remove a custom dish from the library. Predefined dishes cannot be removed.",
+            "fields": {
+                "dish_id": {
+                    "name": "Dish ID",
+                    "description": "The custom dish's id."
+                }
+            }
+        },
+        "get_dishes": {
+            "name": "Get dishes",
+            "description": "Return the merged predefined + custom dish library."
+        },
+        "get_history": {
+            "name": "Get history",
+            "description": "Return the completed-session history."
+        },
+        "restart_session": {
+            "name": "Restart session",
+            "description": "Start a new session from a history entry's frozen snapshot.",
+            "fields": {
+                "history_id": {
+                    "name": "History ID",
+                    "description": "The history entry's id."
+                }
+            }
+        }
+    },
+    "exceptions": {
+        "session_already_running": {
+            "message": "A session is already running."
+        },
+        "unknown_dish_id": {
+            "message": "Unknown dish id: {dish_id}"
+        },
+        "unknown_or_predefined_dish_id": {
+            "message": "No custom dish with id {dish_id} (predefined dishes cannot be modified)."
+        },
+        "unknown_history_id": {
+            "message": "No history entry with id {history_id}."
+        }
     }
 }

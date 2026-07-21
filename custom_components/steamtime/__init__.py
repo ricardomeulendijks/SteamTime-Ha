@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .data import SteamTimeData
+from .services import async_setup_services, async_unload_services
 from .session_manager import SessionManager
 from .storage import DishLibraryStore, HistoryStore, SessionStore
 
@@ -38,11 +39,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: SteamTimeConfigEntry) ->
         session_manager=session_manager,
     )
 
+    await async_setup_services(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: SteamTimeConfigEntry) -> bool:
     """Handle removal of an entry."""
+    async_unload_services(hass)
     await entry.runtime_data.session_manager.async_unload()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

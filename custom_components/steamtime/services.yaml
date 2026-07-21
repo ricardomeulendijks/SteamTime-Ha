@@ -1,0 +1,110 @@
+start_session:
+  fields:
+    dishes:
+      required: true
+      example: [{ "dish_id": "broccoli" }, { "name": "Leftover stew", "minutes": 15 }]
+      selector:
+        object:
+
+confirm_dish:
+  fields:
+    dish_id:
+      required: true
+      example: "d2"
+      selector:
+        text:
+
+cancel_session:
+
+add_dish:
+  fields:
+    name:
+      required: true
+      example: "Asparagus"
+      selector:
+        text:
+    minutes:
+      required: true
+      example: 12
+      selector:
+        number:
+          min: 1
+          max: 600
+          unit_of_measurement: minutes
+    temperature:
+      required: true
+      example: 100
+      selector:
+        number:
+          min: 1
+          max: 250
+          unit_of_measurement: "°C"
+    category:
+      required: true
+      example: "vegetables"
+      selector:
+        select:
+          options:
+            - "vegetables"
+            - "fish"
+            - "meat"
+            - "other"
+
+update_dish:
+  fields:
+    dish_id:
+      required: true
+      example: "custom_1a2b3c4d"
+      selector:
+        text:
+    name:
+      required: true
+      example: "Asparagus"
+      selector:
+        text:
+    minutes:
+      required: true
+      example: 12
+      selector:
+        number:
+          min: 1
+          max: 600
+          unit_of_measurement: minutes
+    temperature:
+      required: true
+      example: 100
+      selector:
+        number:
+          min: 1
+          max: 250
+          unit_of_measurement: "°C"
+    category:
+      required: true
+      example: "vegetables"
+      selector:
+        select:
+          options:
+            - "vegetables"
+            - "fish"
+            - "meat"
+            - "other"
+
+remove_dish:
+  fields:
+    dish_id:
+      required: true
+      example: "custom_1a2b3c4d"
+      selector:
+        text:
+
+get_dishes:
+
+get_history:
+
+restart_session:
+  fields:
+    history_id:
+      required: true
+      example: "6e1b3c9e4f2a4d8c8b6a1e2f3c4d5e6f"
+      selector:
+        text:
