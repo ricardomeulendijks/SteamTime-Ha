@@ -123,6 +123,7 @@
         <ha-card header="SteamTime">
           <div class="card-content">
             <div id="error-banner" class="error-banner" hidden></div>
+            <div id="debug-info" style="font-size:0.75em;color:var(--secondary-text-color);"></div>
             <div id="setup-section">
               <h3>Dishes</h3>
               <div id="dish-list" class="dish-list"></div>
@@ -139,7 +140,9 @@
         </ha-card>
       `;
 
+      this._hassTickCount = 0;
       this._errorBanner = root.getElementById("error-banner");
+      this._debugInfoEl = root.getElementById("debug-info");
       this._setupSection = root.getElementById("setup-section");
       this._liveSection = root.getElementById("live-section");
       this._dishListEl = root.getElementById("dish-list");
@@ -179,6 +182,8 @@
 
     set hass(hass) {
       this._hass = hass;
+      this._hassTickCount += 1;
+      this._renderDebugInfo(hass);
       try {
         this._updateFromHass(hass);
       } catch (err) {
@@ -186,6 +191,16 @@
         // eslint-disable-next-line no-console
         console.error("steamtime-card render error", err);
       }
+    }
+
+    _renderDebugInfo(hass) {
+      const library = hass.states[ENTITY_DISH_LIBRARY];
+      const libraryInfo = library
+        ? `found, ${(library.attributes.dishes || []).length} dishes`
+        : "NOT FOUND in hass.states";
+      const rowsInDom = this._dishListEl ? this._dishListEl.querySelectorAll(".dish-row").length : "?";
+      this._debugInfoEl.textContent =
+        `debug: hass ticks=${this._hassTickCount} · sensor.steamtime_dish_library ${libraryInfo} · rows in DOM=${rowsInDom}`;
     }
 
     _updateFromHass(hass) {
