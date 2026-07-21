@@ -137,7 +137,10 @@ actions:
               dish_id: >-
                 {{ trigger.event.data.action[len('steamtime_confirm_'):] }}
 
-      # A dish finished cooking.
+      # A dish finished cooking. Always time-sensitive/high-priority — unlike
+      # the critical add-alerts toggle, this isn't optional: a finished dish
+      # going cold or overcooking is worth prompt delivery by default,
+      # without bypassing Do Not Disturb the way a critical alert would.
       - conditions:
           - condition: trigger
             id: dish_done
@@ -151,6 +154,9 @@ actions:
                     message: "{{ trigger.event.data.dish_name }} is done"
                     data:
                       tag: "steamtime_{{ trigger.event.data.dish_id }}"
+                      push:
+                        interruption-level: time-sensitive
+                      priority: high
 
       # Every dish is done.
       - conditions:
@@ -164,6 +170,10 @@ actions:
                   data:
                     title: SteamTime
                     message: Session complete — everything's ready!
+                    data:
+                      push:
+                        interruption-level: time-sensitive
+                      priority: high
 
       # Session cancelled: clear any stale add-notifications, then confirm.
       - conditions:

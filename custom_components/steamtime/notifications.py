@@ -33,6 +33,12 @@ if TYPE_CHECKING:
 _MOBILE_APP_ACTION_EVENT = "mobile_app_notification_action"
 _CONFIRM_ACTION_PREFIX = "steamtime_confirm_"
 
+# "Done" alerts are always at least time-sensitive/high-priority — unlike the
+# optional critical add-alerts toggle, this isn't gated by user preference:
+# a finished dish going cold or overcooking is worth prompt delivery by
+# default, and unlike a critical alert this doesn't bypass Do Not Disturb.
+_TIME_SENSITIVE_PUSH = {"interruption-level": "time-sensitive"}
+
 
 class NotificationDispatcher:
     """Sends built-in notifications to the notify target(s) in entry.options."""
@@ -120,13 +126,21 @@ class NotificationDispatcher:
             {
                 "title": "Done",
                 "message": f"{event.data['dish_name']} is done",
-                "data": {"tag": f"steamtime_{dish_id}"},
+                "data": {
+                    "tag": f"steamtime_{dish_id}",
+                    "push": _TIME_SENSITIVE_PUSH,
+                    "priority": "high",
+                },
             }
         )
 
     async def _handle_session_completed(self, _event: Event) -> None:
         await self._send_to_all(
-            {"title": "SteamTime", "message": "Session complete — everything's ready!"}
+            {
+                "title": "SteamTime",
+                "message": "Session complete — everything's ready!",
+                "data": {"push": _TIME_SENSITIVE_PUSH, "priority": "high"},
+            }
         )
 
     async def _handle_session_cancelled(self, event: Event) -> None:

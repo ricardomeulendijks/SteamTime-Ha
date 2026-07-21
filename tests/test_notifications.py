@@ -142,7 +142,11 @@ async def test_dish_done_and_session_completed(hass: HomeAssistant) -> None:
     assert len(calls) == 2
     assert calls[0].data["message"] == "Fish is done"
     assert calls[0].data["data"]["tag"] == "steamtime_d1"
+    assert calls[0].data["data"]["priority"] == "high"
+    assert calls[0].data["data"]["push"]["interruption-level"] == "time-sensitive"
     assert "complete" in calls[1].data["message"].lower()
+    assert calls[1].data["data"]["priority"] == "high"
+    assert calls[1].data["data"]["push"]["interruption-level"] == "time-sensitive"
 
     dispatcher.async_unload()
 

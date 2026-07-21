@@ -170,9 +170,13 @@ async def test_blueprint_actually_runs_without_errors(
     done_call = calls[1].data
     assert done_call["message"] == "Fish is done"
     assert done_call["data"]["tag"] == "steamtime_d1"
+    assert done_call["data"]["priority"] == "high"
+    assert done_call["data"]["push"]["interruption-level"] == "time-sensitive"
 
     completed_call = calls[2].data
     assert "complete" in completed_call["message"].lower()
+    assert completed_call["data"]["priority"] == "high"
+    assert completed_call["data"]["push"]["interruption-level"] == "time-sensitive"
 
     clear_calls = [c.data for c in calls[3:5]]
     cleared_tags = {c["data"]["tag"] for c in clear_calls}
