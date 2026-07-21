@@ -9,6 +9,32 @@
             "already_configured": "SteamTime is al geconfigureerd."
         }
     },
+    "entity": {
+        "sensor": {
+            "session": {
+                "name": "Sessie"
+            },
+            "next_add": {
+                "name": "Volgende toevoeging"
+            },
+            "next_done": {
+                "name": "Volgende klaar"
+            }
+        },
+        "binary_sensor": {
+            "awaiting_confirmation": {
+                "name": "Wacht op bevestiging"
+            }
+        },
+        "button": {
+            "confirm": {
+                "name": "Bevestigen"
+            },
+            "cancel": {
+                "name": "Annuleren"
+            }
+        }
+    },
     "services": {
         "start_session": {
             "name": "Sessie starten",

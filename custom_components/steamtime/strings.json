@@ -9,6 +9,32 @@
             "already_configured": "SteamTime is already configured."
         }
     },
+    "entity": {
+        "sensor": {
+            "session": {
+                "name": "Session"
+            },
+            "next_add": {
+                "name": "Next add"
+            },
+            "next_done": {
+                "name": "Next done"
+            }
+        },
+        "binary_sensor": {
+            "awaiting_confirmation": {
+                "name": "Awaiting confirmation"
+            }
+        },
+        "button": {
+            "confirm": {
+                "name": "Confirm"
+            },
+            "cancel": {
+                "name": "Cancel"
+            }
+        }
+    },
     "services": {
         "start_session": {
             "name": "Start session",

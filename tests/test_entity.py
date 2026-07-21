@@ -9,10 +9,11 @@ from custom_components.steamtime.entity import SteamTimeEntity
 
 
 def test_device_info_ties_entity_to_the_single_steamtime_device() -> None:
-    entity = SteamTimeEntity("entry123")
+    entity = SteamTimeEntity("entry123", "session")
 
     assert entity.device_info == {
         "identifiers": {(DOMAIN, "entry123")},
         "name": "SteamTime",
         "entry_type": DeviceEntryType.SERVICE,
     }
+    assert entity.unique_id == "entry123_session"

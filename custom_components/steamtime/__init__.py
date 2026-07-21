@@ -9,18 +9,23 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from homeassistant.const import Platform
+
 from .data import SteamTimeData
 from .services import async_setup_services, async_unload_services
 from .session_manager import SessionManager
 from .storage import DishLibraryStore, HistoryStore, SessionStore
 
 if TYPE_CHECKING:
-    from homeassistant.const import Platform
     from homeassistant.core import HomeAssistant
 
     from .data import SteamTimeConfigEntry
 
-PLATFORMS: list[Platform] = []
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
+]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: SteamTimeConfigEntry) -> bool:
