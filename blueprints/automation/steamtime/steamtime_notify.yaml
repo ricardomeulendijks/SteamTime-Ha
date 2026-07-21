@@ -23,8 +23,9 @@ blueprint:
     critical_add_alerts:
       name: Critical add alerts
       description: >-
-        Send "add this dish" alerts as time-sensitive / high-priority
-        notifications, so they cut through Do Not Disturb.
+        Send "add this dish" alerts as critical alerts: they play a sound and
+        show even with Do Not Disturb on or the phone muted (iOS), and use
+        high priority + the alarm channel (Android).
       default: false
       selector:
         boolean:
@@ -87,7 +88,11 @@ actions:
                     title: Confirm added
                 push:
                   interruption-level: >-
-                    {{ 'time-sensitive' if critical_add_alerts else 'active' }}
+                    {{ 'critical' if critical_add_alerts else 'active' }}
+                  sound:
+                    name: default
+                    critical: "{{ 1 if critical_add_alerts else 0 }}"
+                    volume: "{{ 1.0 if critical_add_alerts else 0.5 }}"
                 priority: "{{ 'high' if critical_add_alerts else 'normal' }}"
                 ttl: "{{ 0 if critical_add_alerts else 2419200 }}"
                 channel: "{{ 'alarm_stream' if critical_add_alerts else 'default' }}"
