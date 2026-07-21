@@ -36,3 +36,7 @@ DISH_TEMPERATURE_MIN = 1
 DISH_TEMPERATURE_MAX = 250
 DISH_DEFAULT_TEMPERATURE = 100
 DISH_DEFAULT_CATEGORY = "other"
+
+# entry.options keys for the built-in notification path (design §7, §8).
+CONF_NOTIFY_TARGETS = "notify_targets"
+CONF_CRITICAL_ADD_ALERTS = "critical_add_alerts"

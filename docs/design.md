@@ -32,7 +32,8 @@ A custom integration, domain `steamtime`, single config entry. Layers, with a st
 - **Entities (`sensor.py`, `binary_sensor.py`, `button.py`)** — render engine state; never mutate it except by dispatching the same commands a service call would.
 - **Services (`services.py`)** — the command surface (§6).
 - **Storage (`storage.py`)** — three `Store` objects: dish library, live session, history (§5).
-- **Blueprint (`blueprints/automation/steamtime/steamtime_notify.yaml`)** — actionable-notification wiring, shipped in the repo and referenced in the README (§7).
+- **Notifications (`notifications.py`)** — optional built-in event-driven notification delivery, driven by config-flow/options-flow preferences; a plain consumer of the same public events as the blueprint (§7, §8).
+- **Blueprint (`blueprints/automation/steamtime/steamtime_notify.yaml`)** — actionable-notification wiring, shipped in the repo and referenced in the README; the advanced/customizable alternative to the built-in path (§7).
 
 ## 3. Sequencing engine (ported from TD v3 §5)
 
@@ -131,19 +132,26 @@ Events are the automation surface: the blueprint consumes them, and users can ha
 
 ## 7. Notifications (replaces TD v3 §6 entirely)
 
-The integration itself sends **no notifications** — it fires events. Delivery is a shipped automation **blueprint** (`blueprints/automation/steamtime/steamtime_notify.yaml`) the user imports once and points at their `notify.mobile_app_*` service(s). The blueprint:
+Two delivery paths consume the same public events (§6); the integration's own engine/session_manager code has no idea which (if either) is active:
 
-1. Triggers on `steamtime_add_dish` → sends an actionable companion-app notification ("Add *{dish}* to the oven — {temperature} °C") with a **Confirm added** action button, `tag: steamtime_{dish_id}` so it can be updated/cleared.
-2. Triggers on `mobile_app_notification_action` for that action → calls `steamtime.confirm_dish` with the dish id carried in the action payload. The confirmation timestamp is the trigger time, so countdown accuracy survives any automation latency.
-3. Triggers on `steamtime_dish_done` → sends "*{dish}* is done"; on `steamtime_session_completed` → sends a completion summary; clears stale `readyToAdd` notifications on cancel.
+1. **Built-in (default, guided setup)** — the config flow (§8) collects notify target(s) and a critical-alerts toggle. If any target is configured, `notifications.py` listens for the four `steamtime_*` events plus `mobile_app_notification_action` and sends the notifications itself. This is what makes install feel like "add integration, pick your phone, done" — no separate blueprint import, no hand-authored automation, no chance of getting the notify-service name or YAML wrong (all real failure modes hit and fixed during manual testing of the blueprint-only path).
+2. **Blueprint (optional, advanced)** — `blueprints/automation/steamtime/steamtime_notify.yaml` stays in the repo for anyone who wants delivery the built-in path doesn't offer (TTS, lights, custom wording, a different chime mechanism) or prefers a visible, user-owned automation. It consumes the identical events; nothing about it changes because the built-in path exists, and both can run simultaneously with no conflict (each independently reacts to the same bus events).
 
-Blueprint inputs: notify target(s), whether add-alerts are critical/high-priority, optional media_player for a chime. This split (integration fires events, blueprint delivers) is the design's biggest idiomatic win: lock-screen confirm buttons — the thing that required a foreground service, a command inbox, and an exact-alarm fallback on Android — is companion-app standard behavior wired in ~60 lines of YAML the user can customize freely.
+Both paths implement the same behavior:
+
+1. `steamtime_add_dish` → an actionable companion-app notification ("Add *{dish}* to the oven — {temperature} °C") with a **Confirm added** action button, `tag: steamtime_{dish_id}` so it can be updated/cleared.
+2. The resulting `mobile_app_notification_action` → `steamtime.confirm_dish`, with the dish id carried in the action identifier itself (`steamtime_confirm_{dish_id}` — the one field confirmed to round-trip reliably on both iOS and Android; `tag`/`action_data` don't). The confirmation timestamp is the actual tap time, so countdown accuracy survives any latency.
+3. `steamtime_dish_done` → "*{dish}* is done"; `steamtime_session_completed` → a completion summary; `steamtime_session_cancelled` → clears each stale `readyToAdd` notification tag via the event's `dish_ids` (added specifically to make this possible — see changelog), then a cancelled notice.
+
+Critical alerts, both paths: iOS `push.interruption-level: critical` + `sound: {critical: 1, volume: ...}` (plays even with Do Not Disturb on or the phone muted — a genuine Apple Critical Alert, not just time-sensitive); Android `priority: high` + `channel: alarm_stream` + `ttl: 0`.
+
+**Implementation constraint that shapes both paths identically, discovered during manual testing, not a design choice:** actionable/rich notification fields (`tag`, `actions`, `push`, `priority`, `ttl`, `channel`) can only be sent via a target's actual **service** (e.g. `notify.mobile_app_iphone`), never via the generic `notify.send_message` action targeting a `notify.*` **entity** — that action's registered schema is `{message, title}` only, for any notify entity, by design (confirmed against `homeassistant/components/notify/__init__.py`). Both the config flow's notify-target picker and the blueprint's `notify_targets` input therefore work with real registered `notify.*` **services** (`hass.services.async_services()["notify"]`), not entities — which service names exist depends on the user's companion-app/HA version and isn't guaranteed to be predictable from the entity name alone.
 
 ## 8. Dish data, config flow, localization
 
 **Predefined dishes** ship as `dishes_predefined.json` in the integration: `{id, name_en, name_nl, steam_minutes, temperature, category}`. Content is compiled by the product owner (per the PRD); the agent creates the file with ~10 placeholder dishes and a schema comment, and never invents "real" steam times beyond obvious placeholders. Display name resolution: `name_nl` when HA's language is Dutch and the field is present, else `name_en` — custom dish names are shown as typed, untranslated (same policy as TD v3 §11).
 
-**Config flow:** single instance (`single_config_entry`), no user-entered fields — just confirm-and-create. No options flow for the POC (the dish library is managed via services, not options — a list-of-objects library is a poor fit for options-flow forms). No YAML configuration.
+**Config flow:** single instance (`single_config_entry`). After the confirm step, an optional step collects notify target(s) (a live-populated list of real registered `notify.*` services, never entities — see §7) and the critical-alerts toggle for the built-in notification path. Leaving notify targets empty is valid: it means the integration sends no notifications itself, and the blueprint remains fully usable either way. These two fields live in `entry.options`, not `entry.data`, since they're meant to be changed after setup: an **options flow** re-shows the same step (Settings → Devices & Services → SteamTime → Configure) and reloads the entry on change so `notifications.py` picks up new targets immediately. The dish library is still services-only, not options — that reasoning is unchanged (a list-of-objects library is a poor fit for options-flow forms). No YAML configuration.
 
 **Localization:** all integration strings (config flow, entity names, service descriptions, event-adjacent text used by the blueprint defaults) in `strings.json` + `translations/en.json` and `translations/nl.json`. Category display labels are translation keys, never stored display text.
 
@@ -185,3 +193,5 @@ The Android design's dominant risk (OEM background killing) is gone. The HA vers
 *Changelog: v1 — initial HA port of TD v3. Supersedes the Android technical design for all platform decisions; preserves its engine semantics (§3), history snapshot semantics, and cancellation semantics unchanged.*
 
 *v1.1 (step 7, blueprint work) — `steamtime_session_cancelled` gained `dish_ids`: the original `session_id`-only payload gave the notification blueprint no way to know which per-dish add-notification tags to clear, and by the time an automation reacts to the event, `SessionManager` has already cleared its state and re-rendered the sensor, so there was no reliable side channel to recover that list either. Additive change to `SessionCancelledEffect` (engine) and the fired event; not a breaking change for existing consumers of `session_id`.*
+
+*v1.2 (post-launch, guided setup) — added a built-in notification delivery path (`notifications.py`) driven by new config-flow/options-flow fields (notify target(s), critical alerts), reversing the POC's original "no user-entered fields, no options flow" decision (§8) specifically for these two preferences — not for the dish library, whose reasoning is unchanged. Motivated by real friction found installing and testing the blueprint-only path on a real device: correctly identifying the right `notify.*` service name, and manually authoring/importing an automation, were both real barriers for a new user. The blueprint remains fully supported as the advanced/customizable alternative; both paths consume the identical public events and can coexist.*

@@ -3,10 +3,38 @@
         "step": {
             "user": {
                 "description": "Stel SteamTime in, je kookassistent voor de stoomoven."
+            },
+            "notify": {
+                "title": "Meldingen (optioneel)",
+                "description": "Kies de notify-service(s) van je telefoon voor ingebouwde \"dit gerecht toevoegen\"- en \"gerecht is klaar\"-meldingen, met een Toegevoegd-bevestigen-knop. Laat dit leeg als je meldingen liever zelf via de meegeleverde blueprint instelt, of helemaal geen meldingen wilt. Je kunt dit later wijzigen via de Instellen-knop van deze integratie.",
+                "data": {
+                    "notify_targets": "Notify-service(s)",
+                    "critical_add_alerts": "Kritieke toevoeg-meldingen"
+                },
+                "data_description": {
+                    "notify_targets": "bijv. notify.mobile_app_iphone",
+                    "critical_add_alerts": "Negeer Niet storen / stille modus voor \"dit gerecht toevoegen\"-meldingen"
+                }
             }
         },
         "abort": {
             "already_configured": "SteamTime is al geconfigureerd."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Meldingen",
+                "description": "Kies de notify-service(s) van je telefoon voor ingebouwde \"dit gerecht toevoegen\"- en \"gerecht is klaar\"-meldingen. Laat dit leeg om ingebouwde meldingen uit te schakelen.",
+                "data": {
+                    "notify_targets": "Notify-service(s)",
+                    "critical_add_alerts": "Kritieke toevoeg-meldingen"
+                },
+                "data_description": {
+                    "notify_targets": "bijv. notify.mobile_app_iphone",
+                    "critical_add_alerts": "Negeer Niet storen / stille modus voor \"dit gerecht toevoegen\"-meldingen"
+                }
+            }
         }
     },
     "selector": {

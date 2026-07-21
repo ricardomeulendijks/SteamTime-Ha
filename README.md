@@ -18,8 +18,10 @@ original product spec.
 2. Add this repository's URL, category **Integration**.
 3. Search for **SteamTime** in HACS and install it.
 4. Restart Home Assistant.
-5. **Settings → Devices & Services → Add Integration → SteamTime.** No configuration
-   fields — just confirm.
+5. **Settings → Devices & Services → Add Integration → SteamTime**, confirm, then
+   (optionally) pick your phone's notify service(s) and whether add-alerts should be
+   critical — see [Notifications](#notifications) below. Leave it blank if you'd
+   rather set up notifications yourself via the blueprint, or skip them entirely.
 
 ### Manual
 
@@ -53,19 +55,41 @@ One device, **SteamTime**, holding:
 
 ## Notifications
 
-The integration itself only fires events — delivery is a separate automation
-**blueprint**:
+Two ways to get "add this dish" / "dish is done" alerts on your phone, with a
+**Confirm added** action button you can tap from the lock screen. Both consume the
+same events (below) and can run at the same time with no conflict — pick whichever
+fits, or both.
+
+### Built in (default, guided)
+
+Pick your phone's notify service(s) — e.g. `notify.mobile_app_iphone` — during setup,
+or any time after via **Settings → Devices & Services → SteamTime → Configure**.
+That's it: the integration sends the notifications itself, no separate automation to
+build. Toggle **Critical add alerts** if you want "add this dish" alerts to bypass Do
+Not Disturb / silent mode entirely (a real Apple Critical Alert on iOS; high priority
++ the alarm channel on Android).
+
+Note: this needs the actual notify **service** name (e.g. `notify.mobile_app_iphone`),
+not just any `notify.*` entity — actionable notification buttons, tags, and critical
+alerts only work through that service. The setup step lists your real registered
+options; if you don't see the one you expect, check **Developer Tools → Actions**
+searching "notify" to see what your companion app actually registered.
+
+### Blueprint (optional, advanced)
+
+For anything the built-in path doesn't cover — a different wording, a TTS
+announcement, flashing lights, multiple delivery mechanisms at once — import the
+shipped automation **blueprint** instead (or as well):
 
 1. **Settings → Automations & Scenes → Blueprints → Import Blueprint**, and paste the
    URL to
    [`blueprints/automation/steamtime/steamtime_notify.yaml`](blueprints/automation/steamtime/steamtime_notify.yaml)
    in this repo.
 2. Create a new automation from the imported blueprint, pick your phone's notify
-   target(s), and save.
+   service(s), and save.
 
-That's it — "add this dish" alerts arrive with a **Confirm added** action button you
-can tap from the lock screen, done-alerts follow, and a cancelled session clears any
-notifications still waiting on a reply.
+Cancelling a session clears any add-notifications still waiting on a reply, on
+either path.
 
 ## Example dashboard card
 

@@ -3,10 +3,38 @@
         "step": {
             "user": {
                 "description": "Set up SteamTime, your steam-oven cooking companion."
+            },
+            "notify": {
+                "title": "Notifications (optional)",
+                "description": "Pick your phone's notify service(s) to get built-in \"add this dish\" and \"dish is done\" alerts, with a Confirm added button. Leave this empty if you'd rather set up notifications yourself via the shipped blueprint, or don't want them at all. You can change this later from this integration's Configure button.",
+                "data": {
+                    "notify_targets": "Notify service(s)",
+                    "critical_add_alerts": "Critical add alerts"
+                },
+                "data_description": {
+                    "notify_targets": "e.g. notify.mobile_app_iphone",
+                    "critical_add_alerts": "Bypass Do Not Disturb / silent mode for \"add this dish\" alerts"
+                }
             }
         },
         "abort": {
             "already_configured": "SteamTime is already configured."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Notifications",
+                "description": "Pick your phone's notify service(s) to get built-in \"add this dish\" and \"dish is done\" alerts. Leave this empty to disable built-in notifications.",
+                "data": {
+                    "notify_targets": "Notify service(s)",
+                    "critical_add_alerts": "Critical add alerts"
+                },
+                "data_description": {
+                    "notify_targets": "e.g. notify.mobile_app_iphone",
+                    "critical_add_alerts": "Bypass Do Not Disturb / silent mode for \"add this dish\" alerts"
+                }
+            }
         }
     },
     "selector": {

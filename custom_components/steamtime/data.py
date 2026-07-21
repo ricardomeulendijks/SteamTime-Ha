@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from homeassistant.config_entries import ConfigEntry
 
 if TYPE_CHECKING:
+    from .notifications import NotificationDispatcher
     from .session_manager import SessionManager
     from .storage import DishLibraryStore, HistoryStore
 
@@ -19,6 +20,7 @@ class SteamTimeData:
     dish_library: DishLibraryStore
     history: HistoryStore
     session_manager: SessionManager
+    notification_dispatcher: NotificationDispatcher
 
 
 type SteamTimeConfigEntry = ConfigEntry[SteamTimeData]
