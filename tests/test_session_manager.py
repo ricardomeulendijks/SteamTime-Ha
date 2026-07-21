@@ -170,3 +170,43 @@ async def test_full_lifecycle_via_timer_confirm_then_done_then_completed(
     assert history_id is not None
     assert "steamtime.session" not in hass_storage
     assert hass_storage["steamtime.history"]["data"][0]["id"] == history_id
+
+
+async def test_completion_writes_history_before_clearing_the_live_session(
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A crash between the two must never lose a completed session (design §10).
+
+    The history entry is the only durable record once the live session is
+    gone, so it must be written first — verified here by call-order, not
+    just by both eventually happening.
+    """
+    manager = await _make_manager(hass)
+    call_order: list[str] = []
+
+    original_add_entry = HistoryStore.async_add_entry
+    original_clear = SessionStore.async_clear
+
+    async def spy_add_entry(self: HistoryStore, **kwargs: object) -> str:
+        call_order.append("history_add_entry")
+        return await original_add_entry(self, **kwargs)  # type: ignore[arg-type]
+
+    async def spy_clear(self: SessionStore) -> None:
+        call_order.append("session_clear")
+        await original_clear(self)
+
+    monkeypatch.setattr(HistoryStore, "async_add_entry", spy_add_entry)
+    monkeypatch.setattr(SessionStore, "async_clear", spy_clear)
+
+    await manager.async_start_session([_fish(1)])
+    assert manager.state is not None
+    dish_id = manager.state.dishes[0].id
+    confirmed_at = manager.state.dishes[0].planned_add_at
+    await manager.async_confirm_dish(dish_id, confirmed_at)
+    done_at = manager.state.dishes[0].done_at
+    assert done_at is not None
+
+    async_fire_time_changed(hass, datetime.fromtimestamp(done_at + 1, tz=UTC))
+    await hass.async_block_till_done()
+
+    assert call_order == ["history_add_entry", "session_clear"]

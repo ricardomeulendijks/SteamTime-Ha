@@ -143,7 +143,17 @@ class SessionManager:
         await self._process(state, effects)
 
     async def _process(self, state: SessionState, effects: Sequence[Effect]) -> None:
-        """Persist, fire effects, notify entities, then re-arm the next timer."""
+        """
+        Persist, fire effects, notify entities, then re-arm the next timer.
+
+        A completed session's history entry is written *before* the live
+        session store is cleared — not after — so a crash between the two
+        never loses the session: the history entry is the only durable
+        record once the live copy is gone, so it must exist first (design
+        §10's "after completion but mid-history-write?" review prompt).
+        """
+        history_id = await self._persist_completed_history(effects)
+
         if state.status is SessionStatus.RUNNING:
             await self._session_store.async_save(session_to_dict(state))
             self.state = state
@@ -151,13 +161,25 @@ class SessionManager:
             await self._session_store.async_clear()
             self.state = None
 
-        await self._fire_bus_events(state, effects)
+        self._fire_bus_events(state, effects, history_id)
         async_dispatcher_send(self.hass, SIGNAL_SESSION_UPDATED)
 
         self._rearm(self.state)
 
-    async def _fire_bus_events(
-        self, state: SessionState, effects: Sequence[Effect]
+    async def _persist_completed_history(self, effects: Sequence[Effect]) -> str | None:
+        """Write the completed-session history entry, if this batch has one."""
+        completed = next(
+            (e for e in effects if isinstance(e, SessionCompletedEffect)), None
+        )
+        if completed is None:
+            return None
+        return await self._history_store.async_add_entry(
+            completed_at=completed.completed_at,
+            dishes=[asdict(dish) for dish in completed.dishes],
+        )
+
+    def _fire_bus_events(
+        self, state: SessionState, effects: Sequence[Effect], history_id: str | None
     ) -> None:
         """Translate declarative engine effects into HA bus events."""
         language = self.hass.config.language
@@ -189,10 +211,6 @@ class SessionManager:
                     },
                 )
             elif isinstance(effect, SessionCompletedEffect):
-                history_id = await self._history_store.async_add_entry(
-                    completed_at=effect.completed_at,
-                    dishes=[asdict(dish) for dish in effect.dishes],
-                )
                 self.hass.bus.async_fire(
                     EVENT_SESSION_COMPLETED,
                     {"session_id": state.session_id, "history_id": history_id},
