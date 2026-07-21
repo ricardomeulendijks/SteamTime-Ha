@@ -9,6 +9,16 @@
             "already_configured": "SteamTime is already configured."
         }
     },
+    "selector": {
+        "dish_category": {
+            "options": {
+                "vegetables": "Vegetables",
+                "fish": "Fish",
+                "meat": "Meat",
+                "other": "Other"
+            }
+        }
+    },
     "entity": {
         "sensor": {
             "session": {

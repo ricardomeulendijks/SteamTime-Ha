@@ -44,6 +44,7 @@ add_dish:
       example: "vegetables"
       selector:
         select:
+          translation_key: dish_category
           options:
             - "vegetables"
             - "fish"
@@ -83,6 +84,7 @@ update_dish:
       example: "vegetables"
       selector:
         select:
+          translation_key: dish_category
           options:
             - "vegetables"
             - "fish"

@@ -9,6 +9,16 @@
             "already_configured": "SteamTime is al geconfigureerd."
         }
     },
+    "selector": {
+        "dish_category": {
+            "options": {
+                "vegetables": "Groenten",
+                "fish": "Vis",
+                "meat": "Vlees",
+                "other": "Overig"
+            }
+        }
+    },
     "entity": {
         "sensor": {
             "session": {
