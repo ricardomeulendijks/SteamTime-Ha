@@ -31,10 +31,11 @@ blueprint:
     chime_media_player:
       name: Chime media player (optional)
       description: Play a sound on this media_player when a dish is ready to add.
-      default: ""
+      default: []
       selector:
         entity:
           domain: media_player
+          multiple: true
     chime_sound_url:
       name: Chime sound URL (optional)
       description: >-
@@ -93,7 +94,7 @@ actions:
           - if:
               - condition: template
                 value_template: >-
-                  {{ (chime_media_player | string | length > 0)
+                  {{ (chime_media_player | count > 0)
                      and (chime_sound_url | string | length > 0) }}
             then:
               - action: media_player.play_media
