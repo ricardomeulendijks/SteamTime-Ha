@@ -52,7 +52,7 @@
             "fields": {
                 "dishes": {
                     "name": "Gerechten",
-                    "description": "Elk item is een bibliotheekverwijzing ({dish_id, minutes?}) of een losstaand gerecht ({name, minutes, temperature?})."
+                    "description": "Elk item is een bibliotheekverwijzing (dish_id, optionele minutes) of een losstaand gerecht (name, minutes, optionele temperature)."
                 }
             }
         },

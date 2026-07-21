@@ -52,7 +52,7 @@
             "fields": {
                 "dishes": {
                     "name": "Dishes",
-                    "description": "Each entry is either a library reference ({dish_id, minutes?}) or an inline one-off dish ({name, minutes, temperature?})."
+                    "description": "Each entry is either a library reference (dish_id, optional minutes) or an inline one-off dish (name, minutes, optional temperature)."
                 }
             }
         },
