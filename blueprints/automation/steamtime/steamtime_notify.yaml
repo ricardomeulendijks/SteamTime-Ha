@@ -67,6 +67,15 @@ triggers:
     id: confirm_action
 
 actions:
+  - variables:
+      # Blueprint inputs aren't automatically visible as template variables —
+      # !input only works as a literal YAML substitution, not bare inside a
+      # {{ }} expression. This makes them real variables for every template
+      # below (in every choose branch, since variables set here last the
+      # whole action run).
+      critical_add_alerts: !input critical_add_alerts
+      chime_media_player: !input chime_media_player
+      chime_sound_url: !input chime_sound_url
   - choose:
       # A dish became ready_to_add: send the actionable "add it" alert.
       - conditions:
@@ -81,21 +90,20 @@ actions:
               message: >-
                 Add {{ trigger.event.data.dish_name }} to the oven —
                 {{ trigger.event.data.temperature }} °C
-              data:
-                tag: "steamtime_{{ trigger.event.data.dish_id }}"
-                actions:
-                  - action: "steamtime_confirm_{{ trigger.event.data.dish_id }}"
-                    title: Confirm added
-                push:
-                  interruption-level: >-
-                    {{ 'critical' if critical_add_alerts else 'active' }}
-                  sound:
-                    name: default
-                    critical: "{{ 1 if critical_add_alerts else 0 }}"
-                    volume: "{{ 1.0 if critical_add_alerts else 0.5 }}"
-                priority: "{{ 'high' if critical_add_alerts else 'normal' }}"
-                ttl: "{{ 0 if critical_add_alerts else 2419200 }}"
-                channel: "{{ 'alarm_stream' if critical_add_alerts else 'default' }}"
+              tag: "steamtime_{{ trigger.event.data.dish_id }}"
+              actions:
+                - action: "steamtime_confirm_{{ trigger.event.data.dish_id }}"
+                  title: Confirm added
+              push:
+                interruption-level: >-
+                  {{ 'critical' if critical_add_alerts else 'active' }}
+                sound:
+                  name: default
+                  critical: "{{ 1 if critical_add_alerts else 0 }}"
+                  volume: "{{ 1.0 if critical_add_alerts else 0.5 }}"
+              priority: "{{ 'high' if critical_add_alerts else 'normal' }}"
+              ttl: "{{ 0 if critical_add_alerts else 2419200 }}"
+              channel: "{{ 'alarm_stream' if critical_add_alerts else 'default' }}"
           - if:
               - condition: template
                 value_template: >-
@@ -133,8 +141,7 @@ actions:
             data:
               title: Done
               message: "{{ trigger.event.data.dish_name }} is done"
-              data:
-                tag: "steamtime_{{ trigger.event.data.dish_id }}"
+              tag: "steamtime_{{ trigger.event.data.dish_id }}"
 
       # Every dish is done.
       - conditions:
@@ -161,8 +168,7 @@ actions:
                     entity_id: !input notify_targets
                   data:
                     message: clear_notification
-                    data:
-                      tag: "steamtime_{{ repeat.item }}"
+                    tag: "steamtime_{{ repeat.item }}"
           - action: notify.send_message
             target:
               entity_id: !input notify_targets
