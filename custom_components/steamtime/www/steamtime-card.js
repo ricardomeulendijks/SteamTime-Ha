@@ -73,7 +73,8 @@
       border-radius: 4px;
       font-size: 0.9em;
     }
-    h3 { margin: 0 0 8px 0; font-size: 1em; color: var(--primary-text-color); }
+    .section { display: flex; flex-direction: column; gap: 16px; }
+    h3 { margin: 0; font-size: 1em; color: var(--primary-text-color); }
     .dish-list { display: flex; flex-direction: column; gap: 4px; }
     .dish-row {
       display: flex;
@@ -88,25 +89,35 @@
     .dish-minutes { width: 64px; }
     .dish-actions { display: flex; gap: 4px; margin-left: auto; }
     .icon-btn {
-      background: none; border: none; cursor: pointer; font-size: 1em;
-      color: var(--secondary-text-color); padding: 2px 6px;
+      background: none; border: none; cursor: pointer; font-size: 1.1em;
+      color: var(--secondary-text-color); padding: 4px 8px;
+      -webkit-appearance: none; appearance: none;
     }
     .icon-btn:hover { color: var(--primary-text-color); }
     .empty { color: var(--secondary-text-color); font-style: italic; margin: 0; }
-    .dish-form { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+    .dish-form { display: flex; flex-direction: column; gap: 8px; }
     .dish-form input, .dish-form select {
-      padding: 6px 8px; border: 1px solid var(--divider-color, #e0e0e0);
+      padding: 8px; border: 1px solid var(--divider-color, #e0e0e0);
       border-radius: 4px; background: var(--card-background-color, #fff);
       color: var(--primary-text-color); font: inherit;
     }
     .dish-form-actions { display: flex; gap: 8px; }
-    button.primary {
-      background: var(--primary-color); color: var(--text-primary-color, #fff);
-      border: none; border-radius: 4px; padding: 8px 16px; cursor: pointer; font: inherit;
+    button {
+      font: inherit;
+      -webkit-appearance: none;
+      appearance: none;
     }
-    button.danger { background: var(--error-color, #db4437); }
-    button.confirming { background: var(--warning-color, #ff9800); }
-    button:disabled { opacity: 0.5; cursor: default; }
+    .btn {
+      border: none; border-radius: 4px; padding: 10px 16px; cursor: pointer;
+      box-shadow: none; font-weight: 500;
+      background: var(--secondary-background-color, #e0e0e0);
+      color: var(--primary-text-color);
+    }
+    .btn.primary { background: var(--primary-color); color: var(--text-primary-color, #fff); }
+    .btn.danger { background: var(--error-color, #db4437); color: var(--text-primary-color, #fff); }
+    .btn.confirming { background: var(--warning-color, #ff9800); color: #000; }
+    .btn.block { width: 100%; }
+    .btn:disabled { opacity: 0.5; cursor: default; }
     .badge {
       padding: 2px 8px; border-radius: 12px; font-size: 0.8em;
       background: var(--divider-color, #e0e0e0); color: var(--primary-text-color);
@@ -115,7 +126,6 @@
     .badge-cooking { background: var(--info-color, #039be5); color: #fff; }
     .badge-done { background: var(--success-color, #43a047); color: #fff; }
     .countdowns { color: var(--secondary-text-color); font-size: 0.9em; display: flex; flex-direction: column; gap: 4px; }
-    #cancel-area { margin-top: 8px; }
   `;
 
   class SteamtimeCard extends HTMLElement {
@@ -136,14 +146,13 @@
         <ha-card header="SteamTime">
           <div class="card-content">
             <div id="error-banner" class="error-banner" hidden></div>
-            <div id="debug-info" style="font-size:0.75em;color:var(--secondary-text-color);"></div>
-            <div id="setup-section">
+            <div id="setup-section" class="section">
               <h3>Dishes</h3>
               <div id="dish-list" class="dish-list"></div>
               <div id="dish-form" class="dish-form"></div>
-              <button id="start-btn" class="primary">Start session</button>
+              <button id="start-btn" class="btn primary block">Start session</button>
             </div>
-            <div id="live-section" hidden>
+            <div id="live-section" class="section" hidden>
               <h3>Cooking now</h3>
               <div id="live-list" class="dish-list"></div>
               <div id="countdowns" class="countdowns"></div>
@@ -153,9 +162,7 @@
         </ha-card>
       `;
 
-      this._hassTickCount = 0;
       this._errorBanner = root.getElementById("error-banner");
-      this._debugInfoEl = root.getElementById("debug-info");
       this._setupSection = root.getElementById("setup-section");
       this._liveSection = root.getElementById("live-section");
       this._dishListEl = root.getElementById("dish-list");
@@ -171,7 +178,7 @@
       this._resetDishForm();
 
       this._cancelBtn = document.createElement("button");
-      this._cancelBtn.className = "danger";
+      this._cancelBtn.className = "btn danger block";
       this._cancelBtn.textContent = "Cancel session";
       this._cancelAreaEl.appendChild(this._cancelBtn);
       this._wireConfirmable(this._cancelBtn, "cancel-session", "Confirm cancel?", () =>
@@ -195,8 +202,6 @@
 
     set hass(hass) {
       this._hass = hass;
-      this._hassTickCount += 1;
-      this._renderDebugInfo(hass);
       try {
         this._updateFromHass(hass);
       } catch (err) {
@@ -204,16 +209,6 @@
         // eslint-disable-next-line no-console
         console.error("steamtime-card render error", err);
       }
-    }
-
-    _renderDebugInfo(hass) {
-      const library = findEntity(hass, SUFFIX_DISH_LIBRARY);
-      const libraryInfo = library
-        ? `found, ${(library.attributes.dishes || []).length} dishes`
-        : "NOT FOUND in hass.states";
-      const rowsInDom = this._dishListEl ? this._dishListEl.querySelectorAll(".dish-row").length : "?";
-      this._debugInfoEl.textContent =
-        `debug: hass ticks=${this._hassTickCount} · dish library ${libraryInfo} · rows in DOM=${rowsInDom}`;
     }
 
     _updateFromHass(hass) {
@@ -346,8 +341,8 @@
           ${CATEGORIES.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}
         </select>
         <div class="dish-form-actions">
-          <button id="dish-form-submit" class="primary">Add dish</button>
-          <button id="dish-form-cancel" hidden>Cancel edit</button>
+          <button id="dish-form-submit" class="btn primary">Add dish</button>
+          <button id="dish-form-cancel" class="btn" hidden>Cancel edit</button>
         </div>
       `;
       this._dishFormTitle = this._dishFormEl.querySelector("#dish-form-title");
@@ -427,7 +422,7 @@
               <span class="badge badge-${escapeHtml(dish.status)}">${escapeHtml(
                 STATUS_LABELS[dish.status] || dish.status
               )}</span>
-              ${canConfirm ? `<button class="confirm-dish primary">Confirm added</button>` : ""}
+              ${canConfirm ? `<button class="confirm-dish btn primary">Confirm added</button>` : ""}
             </div>
           `;
         })
