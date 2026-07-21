@@ -115,13 +115,18 @@ async def test_cancel_session_fires_cancelled_event_and_clears_state(
     hass: HomeAssistant, hass_storage: dict[str, Any]
 ) -> None:
     manager = await _make_manager(hass)
-    await manager.async_start_session([_fish()])
+    # Equal steam times: both dishes become ready_to_add together, neither
+    # confirmed, so both have an outstanding add-notification to clear.
+    await manager.async_start_session([_fish(10), _peas(10)])
     cancelled_events = async_capture_events(hass, EVENT_SESSION_CANCELLED)
+    assert manager.state is not None
+    dish_ids = {d.id for d in manager.state.dishes}
 
     await manager.async_cancel_session()
 
     assert manager.state is None
     assert len(cancelled_events) == 1
+    assert set(cancelled_events[0].data["dish_ids"]) == dish_ids
     assert "steamtime.session" not in hass_storage
     assert "steamtime.history" not in hass_storage  # cancellation writes no history
 

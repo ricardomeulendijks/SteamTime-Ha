@@ -199,7 +199,11 @@ class SessionManager:
                 )
             elif isinstance(effect, SessionCancelledEffect):
                 self.hass.bus.async_fire(
-                    EVENT_SESSION_CANCELLED, {"session_id": state.session_id}
+                    EVENT_SESSION_CANCELLED,
+                    {
+                        "session_id": state.session_id,
+                        "dish_ids": list(effect.ready_to_add_dish_ids),
+                    },
                 )
 
     def _rearm(self, state: SessionState | None) -> None:

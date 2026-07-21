@@ -103,7 +103,15 @@ class SessionCompletedEffect:
 
 @dataclass(frozen=True, slots=True)
 class SessionCancelledEffect:
-    """The session was cancelled; the runtime should clear state, write nothing."""
+    """
+    The session was cancelled; the runtime should clear state, write nothing.
+
+    `ready_to_add_dish_ids` lists dishes that were `ready_to_add` at
+    cancellation time, so the runtime can clear their stale add-notification
+    tags without needing to read state that's already been cleared by then.
+    """
+
+    ready_to_add_dish_ids: tuple[str, ...]
 
 
 Effect = (

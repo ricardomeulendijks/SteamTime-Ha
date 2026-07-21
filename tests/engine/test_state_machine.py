@@ -80,12 +80,27 @@ def test_cancellation_writes_nothing_and_stops_further_transitions() -> None:
 
     state, effects = cancel_session(state)
     assert state.status is SessionStatus.CANCELLED
-    assert effects == [SessionCancelledEffect()]
+    assert effects == [SessionCancelledEffect(ready_to_add_dish_ids=())]
 
     # Even though done_at has long passed, a cancelled session never advances.
     state, effects = advance(state, T0 + 10_000)
     assert effects == []
     assert state.dishes[0].status is DishStatus.COOKING
+
+
+def test_cancellation_reports_ready_to_add_dishes_for_notification_clearing() -> None:
+    # d1 (Potatoes, 20 min) and d2 (Fish, 20 min) share offset 0 and both
+    # become ready_to_add together; d3 (Peas, 5 min) stays pending. Only d1
+    # gets confirmed, so only d2 has an outstanding add-notification to clear
+    # (d3 never had one — it hasn't become ready_to_add yet).
+    state = build_session(
+        "s1", [dish("Potatoes", 20), dish("Fish", 20), dish("Peas", 5)], now=T0
+    )
+    state, _ = advance(state, T0)
+    state, _ = confirm_dish(state, "d1", T0)
+
+    state, effects = cancel_session(state)
+    assert effects == [SessionCancelledEffect(ready_to_add_dish_ids=("d2",))]
 
     # Cancelling an already-cancelled session is a no-op.
     state, effects = cancel_session(state)

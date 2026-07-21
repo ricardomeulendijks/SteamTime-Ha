@@ -110,5 +110,8 @@ def cancel_session(state: SessionState) -> tuple[SessionState, list[Effect]]:
     if state.status is not SessionStatus.RUNNING:
         return state, []
 
+    ready_to_add_dish_ids = tuple(
+        dish.id for dish in state.dishes if dish.status is DishStatus.READY_TO_ADD
+    )
     state.status = SessionStatus.CANCELLED
-    return state, [SessionCancelledEffect()]
+    return state, [SessionCancelledEffect(ready_to_add_dish_ids=ready_to_add_dish_ids)]

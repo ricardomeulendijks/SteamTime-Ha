@@ -125,7 +125,7 @@ Writes are awaited before effects observable to the user (events, entity updates
 | `steamtime_add_dish` | `session_id, dish_id, dish_name, temperature, steam_minutes` | A dish enters `readyToAdd` |
 | `steamtime_dish_done` | `session_id, dish_id, dish_name` | A dish enters `done` |
 | `steamtime_session_completed` | `session_id, history_id` | All dishes done |
-| `steamtime_session_cancelled` | `session_id` | Cancellation |
+| `steamtime_session_cancelled` | `session_id, dish_ids` | Cancellation. `dish_ids` lists dishes that were `readyToAdd` at cancellation time, so the blueprint can clear their stale add-notification tags without racing the (already-cleared) session state |
 
 Events are the automation surface: the blueprint consumes them, and users can hang anything else off them (TTS announcements, light flashes) without the integration knowing.
 
@@ -183,3 +183,5 @@ The Android design's dominant risk (OEM background killing) is gone. The HA vers
 ---
 
 *Changelog: v1 — initial HA port of TD v3. Supersedes the Android technical design for all platform decisions; preserves its engine semantics (§3), history snapshot semantics, and cancellation semantics unchanged.*
+
+*v1.1 (step 7, blueprint work) — `steamtime_session_cancelled` gained `dish_ids`: the original `session_id`-only payload gave the notification blueprint no way to know which per-dish add-notification tags to clear, and by the time an automation reacts to the event, `SessionManager` has already cleared its state and re-rendered the sensor, so there was no reliable side channel to recover that list either. Additive change to `SessionCancelledEffect` (engine) and the fired event; not a breaking change for existing consumers of `session_id`.*
