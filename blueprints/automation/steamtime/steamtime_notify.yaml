@@ -1,0 +1,165 @@
+blueprint:
+  name: SteamTime notifications
+  description: >-
+    Actionable-notification wiring for the SteamTime integration (design §7).
+    Sends an "add this dish" alert with a Confirm added action button when a
+    dish becomes ready, turns that button tap into a steamtime.confirm_dish
+    call, sends a "dish is done" alert and a session-complete summary, and
+    clears stale add-notifications if the session is cancelled.
+
+    Import once, point it at your phone's notify target(s), and the whole
+    confirm-from-lock-screen flow works with no further setup.
+  domain: automation
+  input:
+    notify_targets:
+      name: Notify target(s)
+      description: >-
+        One or more notify entities to send SteamTime alerts to (e.g. your
+        phone's companion-app notify entity).
+      selector:
+        entity:
+          domain: notify
+          multiple: true
+    critical_add_alerts:
+      name: Critical add alerts
+      description: >-
+        Send "add this dish" alerts as time-sensitive / high-priority
+        notifications, so they cut through Do Not Disturb.
+      default: false
+      selector:
+        boolean:
+    chime_media_player:
+      name: Chime media player (optional)
+      description: Play a sound on this media_player when a dish is ready to add.
+      default: ""
+      selector:
+        entity:
+          domain: media_player
+    chime_sound_url:
+      name: Chime sound URL (optional)
+      description: >-
+        Media URL or media-source URI to play on the chime media player above.
+        Only used if both this and the chime media player are set.
+      default: ""
+      selector:
+        text:
+
+mode: parallel
+max_exceeded: silent
+
+triggers:
+  - trigger: event
+    event_type: steamtime_add_dish
+    id: add_dish
+  - trigger: event
+    event_type: steamtime_dish_done
+    id: dish_done
+  - trigger: event
+    event_type: steamtime_session_completed
+    id: session_completed
+  - trigger: event
+    event_type: steamtime_session_cancelled
+    id: session_cancelled
+  - trigger: event
+    event_type: mobile_app_notification_action
+    id: confirm_action
+
+actions:
+  - choose:
+      # A dish became ready_to_add: send the actionable "add it" alert.
+      - conditions:
+          - condition: trigger
+            id: add_dish
+        sequence:
+          - action: notify.send_message
+            target:
+              entity_id: !input notify_targets
+            data:
+              title: Add to the oven
+              message: >-
+                Add {{ trigger.event.data.dish_name }} to the oven —
+                {{ trigger.event.data.temperature }} °C
+              data:
+                tag: "steamtime_{{ trigger.event.data.dish_id }}"
+                actions:
+                  - action: "steamtime_confirm_{{ trigger.event.data.dish_id }}"
+                    title: Confirm added
+                push:
+                  interruption-level: >-
+                    {{ 'time-sensitive' if critical_add_alerts else 'active' }}
+                priority: "{{ 'high' if critical_add_alerts else 'normal' }}"
+                ttl: "{{ 0 if critical_add_alerts else 2419200 }}"
+                channel: "{{ 'alarm_stream' if critical_add_alerts else 'default' }}"
+          - if:
+              - condition: template
+                value_template: >-
+                  {{ (chime_media_player | string | length > 0)
+                     and (chime_sound_url | string | length > 0) }}
+            then:
+              - action: media_player.play_media
+                target:
+                  entity_id: !input chime_media_player
+                data:
+                  media_content_id: !input chime_sound_url
+                  media_content_type: music
+
+      # The user tapped "Confirm added" on a SteamTime add-notification.
+      - conditions:
+          - condition: trigger
+            id: confirm_action
+          - condition: template
+            value_template: >-
+              {{ trigger.event.data.action.startswith('steamtime_confirm_') }}
+        sequence:
+          - action: steamtime.confirm_dish
+            data:
+              dish_id: >-
+                {{ trigger.event.data.action[len('steamtime_confirm_'):] }}
+
+      # A dish finished cooking.
+      - conditions:
+          - condition: trigger
+            id: dish_done
+        sequence:
+          - action: notify.send_message
+            target:
+              entity_id: !input notify_targets
+            data:
+              title: Done
+              message: "{{ trigger.event.data.dish_name }} is done"
+              data:
+                tag: "steamtime_{{ trigger.event.data.dish_id }}"
+
+      # Every dish is done.
+      - conditions:
+          - condition: trigger
+            id: session_completed
+        sequence:
+          - action: notify.send_message
+            target:
+              entity_id: !input notify_targets
+            data:
+              title: SteamTime
+              message: Session complete — everything's ready!
+
+      # Session cancelled: clear any stale add-notifications, then confirm.
+      - conditions:
+          - condition: trigger
+            id: session_cancelled
+        sequence:
+          - repeat:
+              for_each: "{{ trigger.event.data.dish_ids }}"
+              sequence:
+                - action: notify.send_message
+                  target:
+                    entity_id: !input notify_targets
+                  data:
+                    message: clear_notification
+                    data:
+                      tag: "steamtime_{{ repeat.item }}"
+          - action: notify.send_message
+            target:
+              entity_id: !input notify_targets
+            data:
+              title: SteamTime
+              message: Session cancelled
