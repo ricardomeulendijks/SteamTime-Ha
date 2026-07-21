@@ -1,17 +1,30 @@
 // SteamTime custom Lovelace card (design §12).
 //
 // Plain vanilla Web Component — no build step, no framework — served
-// directly by the integration (see frontend.py). Reads sensor.steamtime_
-// session / next_add / next_done / dish_library reactively via `hass`, and
+// directly by the integration (see frontend.py). Reads the session /
+// next_add / next_done / dish_library sensors reactively via `hass` (found
+// by object-id suffix, not a fixed entity id — see findEntity()), and
 // drives the same public services the backend already exposes (services.py).
 // No card configuration is needed: `setConfig` is a no-op.
 
 (() => {
   const DOMAIN = "steamtime";
-  const ENTITY_SESSION = "sensor.steamtime_session";
-  const ENTITY_NEXT_ADD = "sensor.steamtime_next_add";
-  const ENTITY_NEXT_DONE = "sensor.steamtime_next_done";
-  const ENTITY_DISH_LIBRARY = "sensor.steamtime_dish_library";
+  // Object-id suffixes, not full entity ids — Home Assistant prepends the
+  // device's area slug to entity ids once it's assigned to an area (e.g.
+  // sensor.keuken_steamtime_dish_library), and users can rename entities
+  // freely, so a fixed "sensor.steamtime_dish_library"-style id can't be
+  // assumed. Matched with findEntity() below instead.
+  const SUFFIX_SESSION = "steamtime_session";
+  const SUFFIX_NEXT_ADD = "steamtime_next_add";
+  const SUFFIX_NEXT_DONE = "steamtime_next_done";
+  const SUFFIX_DISH_LIBRARY = "steamtime_dish_library";
+
+  function findEntity(hass, suffix) {
+    const id = Object.keys(hass.states).find(
+      (entityId) => entityId.startsWith("sensor.") && entityId.endsWith(suffix)
+    );
+    return id ? hass.states[id] : undefined;
+  }
 
   const CATEGORIES = [
     ["vegetables", "Vegetables"],
@@ -194,18 +207,18 @@
     }
 
     _renderDebugInfo(hass) {
-      const library = hass.states[ENTITY_DISH_LIBRARY];
+      const library = findEntity(hass, SUFFIX_DISH_LIBRARY);
       const libraryInfo = library
         ? `found, ${(library.attributes.dishes || []).length} dishes`
         : "NOT FOUND in hass.states";
       const rowsInDom = this._dishListEl ? this._dishListEl.querySelectorAll(".dish-row").length : "?";
       this._debugInfoEl.textContent =
-        `debug: hass ticks=${this._hassTickCount} · sensor.steamtime_dish_library ${libraryInfo} · rows in DOM=${rowsInDom}`;
+        `debug: hass ticks=${this._hassTickCount} · dish library ${libraryInfo} · rows in DOM=${rowsInDom}`;
     }
 
     _updateFromHass(hass) {
-      const session = hass.states[ENTITY_SESSION];
-      const library = hass.states[ENTITY_DISH_LIBRARY];
+      const session = findEntity(hass, SUFFIX_SESSION);
+      const library = findEntity(hass, SUFFIX_DISH_LIBRARY);
 
       const running = Boolean(session && session.state === "running");
       this._setupSection.hidden = running;
@@ -445,8 +458,8 @@
 
     _updateCountdowns() {
       if (!this._hass) return;
-      const nextAdd = this._hass.states[ENTITY_NEXT_ADD];
-      const nextDone = this._hass.states[ENTITY_NEXT_DONE];
+      const nextAdd = findEntity(this._hass, SUFFIX_NEXT_ADD);
+      const nextDone = findEntity(this._hass, SUFFIX_NEXT_DONE);
       const parts = [];
       if (nextAdd && nextAdd.attributes.dish_name) {
         parts.push(

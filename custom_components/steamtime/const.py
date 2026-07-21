@@ -53,4 +53,4 @@ FRONTEND_CARD_FILENAME = "steamtime-card.js"
 # Bump on every steamtime-card.js change so browsers fetch the new file
 # instead of serving a stale cached copy — independent of manifest.json's
 # Python package version, which changes on a different cadence.
-FRONTEND_CARD_VERSION = "3"
+FRONTEND_CARD_VERSION = "4"
