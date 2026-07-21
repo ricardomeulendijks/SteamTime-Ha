@@ -34,6 +34,7 @@ A custom integration, domain `steamtime`, single config entry. Layers, with a st
 - **Storage (`storage.py`)** — three `Store` objects: dish library, live session, history (§5).
 - **Notifications (`notifications.py`)** — optional built-in event-driven notification delivery, driven by config-flow/options-flow preferences; a plain consumer of the same public events as the blueprint (§7, §8).
 - **Blueprint (`blueprints/automation/steamtime/steamtime_notify.yaml`)** — actionable-notification wiring, shipped in the repo and referenced in the README; the advanced/customizable alternative to the built-in path (§7).
+- **Frontend (`www/steamtime-card.js`, `frontend.py`)** — an optional custom Lovelace card served by the integration itself (static path + `add_extra_js_url`); a plain consumer of the same public services and the dish-library/session sensors, no special access (§12).
 
 ## 3. Sequencing engine (ported from TD v3 §5)
 
@@ -90,6 +91,9 @@ One device ("SteamTime") under the config entry, holding:
 | `binary_sensor.steamtime_awaiting_confirmation` | binary_sensor | `on` when ≥ 1 dish is `readyToAdd` | `dish_ids` |
 | `button.steamtime_confirm` | button | Confirms the **oldest** `readyToAdd` dish (convenience; the precise path is the service) | — |
 | `button.steamtime_cancel` | button | Cancels the session | **Registry-disabled by default** (destructive; users enable it deliberately and should add a dashboard confirmation) |
+| `sensor.steamtime_dish_library` | sensor, diagnostic | Dish count (predefined + custom) | `dishes`: list of `{id, name, steam_minutes, temperature, category}` |
+
+`sensor.steamtime_dish_library` exists specifically to feed the custom Lovelace card reactively (§12) — it updates via a dedicated `SIGNAL_DISH_LIBRARY_UPDATED` dispatcher signal fired by `add_dish`/`update_dish`/`remove_dish`, not `SIGNAL_SESSION_UPDATED`, since dish-library changes are unrelated to the live session.
 
 Timestamp sensors are deliberate: dashboard cards render live countdowns from a timestamp natively, so UI smoothness never depends on entity update frequency — the HA equivalent of TD v3's "snapshots carry targets, not remaining-seconds." When no session is running, the timestamp sensors and binary sensor report `unknown`/`off`; buttons no-op with a log line.
 
@@ -192,6 +196,22 @@ The Android design's dominant risk (OEM background killing) is gone. The HA vers
 2. **Restart recovery correctness** — covered by tests in step 4, but validate once on a real HA (`ha core restart` mid-session).
 3. **Watchlist, not risk:** HACS default-store requirements (repo metadata, docs) — handle at publication, the analog of the original's Play Store milestone.
 
+## 12. Custom Lovelace card (post-launch)
+
+§1/§4 originally deferred any custom frontend for the POC ("Entities on a dashboard + services"). Real use showed starting a multi-dish session and managing custom dishes through raw service calls is real friction — this is a deliberate, user-requested reversal of that deferral for these three actions specifically, not a general frontend expansion.
+
+**Tech stack:** a single hand-written vanilla JS Web Component (`www/steamtime-card.js`) — no Lit, no TypeScript, no build step, no npm. The repo has zero JS tooling otherwise; the card's feature surface (a dish checklist, an inline dish CRUD form, a live-status list, one confirm dialog) doesn't need a templating framework to stay maintainable, and a permanent Node toolchain for a page-sized card isn't worth the ongoing weight. Mitigation for hand-rolled DOM without a framework: the shadow DOM is partitioned into a handful of persistent, named regions built once in the constructor; re-renders replace only the region whose backing `hass.states[...]` object changed (reference-equality dirty-check), guarded against clobbering an in-progress edit by checking `shadowRoot.activeElement`.
+
+**Serving it with zero manual setup:** `hass.http.async_register_static_paths` (serving `www/`) + `add_extra_js_url` (auto-loads the card on every dashboard, no manual Lovelace resource step), both verified against the installed `homeassistant==2026.7.2` source directly, not training data (rule 1). Registered from a new `async_setup(hass, config)` in `__init__.py` — **not** `async_setup_entry`, which already runs again on every options-flow save (`_async_reload_on_options_update`, v1.2); `async_register_static_paths` is not idempotent and a second registration of the same URL raises. `manifest.json` gained `"dependencies": ["http", "frontend"]` — in production this is a no-op (every real HA instance already runs `frontend`, it powers the built-in UI), but it means the test harness needs the `home-assistant-frontend` PyPI package too (added to `requirements_test.txt`), which `pytest-homeassistant-custom-component` doesn't install by default.
+
+**Dish-library data:** a new `sensor.steamtime_dish_library` (§4) rather than the card calling `get_dishes` per render — consistent with the existing pattern of `sensor.steamtime_session` already exposing its dish list as an attribute for exactly this kind of reactive dashboard consumption.
+
+**v1 features:** (1) a dish checklist (predefined + custom) with a per-dish minutes override, feeding `start_session`; (2) an inline add/edit/remove form for custom dishes only (`id.startswith("custom_")` — predefined dishes stay immutable, unchanged); (3) a live-session view with per-dish status and a precise per-dish "Confirm added" (`confirm_dish` with that dish's own id, distinct from the existing oldest-dish `button.steamtime_confirm`); (4) cancel-session behind a two-step inline confirm (shared with dish removal), leaving `button.steamtime_cancel` exactly as it is today (still registry-disabled by default).
+
+**Out of scope for v1:** a Lovelace visual card-editor config UI (the card takes no config), a "restart from history" UI (`restart_session` already exists as a service for a later iteration), and card-level i18n — the card's own UI text is English-only, a scoped exception to rule 8; dish names themselves are untouched and still fully translated via `resolve_dish_name`.
+
+**Tests:** the new sensor and its `SIGNAL_DISH_LIBRARY_UPDATED` signal, and the static-path/extra-JS-url registration, are covered by the existing `pytest-homeassistant-custom-component` suite (`tests/test_sensor.py`, `tests/test_frontend.py`). The card's actual JS behavior has no test runner and is manual-only — same category as the notification round-trip and real restart recovery in §11.
+
 ---
 
 *Changelog: v1 — initial HA port of TD v3. Supersedes the Android technical design for all platform decisions; preserves its engine semantics (§3), history snapshot semantics, and cancellation semantics unchanged.*
@@ -203,3 +223,5 @@ The Android design's dominant risk (OEM background killing) is gone. The HA vers
 *v1.3 (post-launch, real-device testing) — §3.1/§3.2: still-`pending` dishes' `plannedAddAt` now shifts once, when the first (offset-0) dish is actually confirmed, by however late that confirmation was relative to `sessionStart`. Previously `plannedOffset` was anchored to `sessionStart` unconditionally, which real-device testing showed breaks the "finish together" premise by exactly the walk-to-the-oven delay before adding the first dish — a gap the original PRD's US-13 only closed for already-`cooking` dishes, not still-`pending` ones. Pure engine change (`engine/state_machine.py`'s `confirm_dish`); no event/service schema change.*
 
 *v1.4 (post-launch, real-device testing) — §7: `dish_done`/`session_completed` notifications, both delivery paths, now always send `priority: high` + `push.interruption-level: time-sensitive`, previously sent with no priority/push data at all (whatever the notify service's own default was). Requested after real-device testing showed a finished-dish alert felt too easy to miss compared to the add alert. Deliberately unconditional, unlike the critical-alerts toggle which stays add-only and opt-in — "done" alerts don't bypass Do Not Disturb, they're just not throttled. Notification payload shape only; no event schema change.*
+
+*v1.5 (post-launch, user-requested) — §2, §4, §12: added an optional custom Lovelace card (`www/steamtime-card.js`) for starting sessions, managing the custom-dish library, and monitoring/cancelling the live session — reversing §1/§4's original "no custom frontend for the POC" deferral specifically for this feature. New `sensor.steamtime_dish_library` and `SIGNAL_DISH_LIBRARY_UPDATED`; new `manifest.json` dependencies (`http`, `frontend`). No changes to existing events/services — the card is purely a consumer of the existing public API (§6). Card UI text is English-only for v1, a scoped exception to rule 8 (dish names themselves are unaffected, still routed through `resolve_dish_name`). No engine changes.*

@@ -5,7 +5,10 @@
     "@ricardomeulendijks"
   ],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": [
+    "http",
+    "frontend"
+  ],
   "documentation": "https://github.com/ricardomeulendijks/SteamTime-Ha",
   "integration_type": "helper",
   "iot_class": "calculated",

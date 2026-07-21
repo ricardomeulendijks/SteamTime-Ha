@@ -57,6 +57,9 @@
             },
             "next_done": {
                 "name": "Volgende klaar"
+            },
+            "dish_library": {
+                "name": "Gerechtenbibliotheek"
             }
         },
         "binary_sensor": {

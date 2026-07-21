@@ -9,6 +9,7 @@ import voluptuous as vol
 from homeassistant.core import SupportsResponse
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import (
     DISH_CATEGORIES,
@@ -30,6 +31,7 @@ from .const import (
     SERVICE_RESTART_SESSION,
     SERVICE_START_SESSION,
     SERVICE_UPDATE_DISH,
+    SIGNAL_DISH_LIBRARY_UPDATED,
 )
 from .engine import DishSpec
 from .session_manager import SessionAlreadyRunningError
@@ -162,6 +164,7 @@ async def async_setup_services(
             temperature=call.data["temperature"],
             category=call.data["category"],
         )
+        async_dispatcher_send(hass, SIGNAL_DISH_LIBRARY_UPDATED)
 
     async def update_dish(call: ServiceCall) -> None:
         try:
@@ -179,6 +182,7 @@ async def async_setup_services(
                 translation_key="unknown_or_predefined_dish_id",
                 translation_placeholders={"dish_id": call.data["dish_id"]},
             ) from err
+        async_dispatcher_send(hass, SIGNAL_DISH_LIBRARY_UPDATED)
 
     async def remove_dish(call: ServiceCall) -> None:
         try:
@@ -191,6 +195,7 @@ async def async_setup_services(
                 translation_key="unknown_or_predefined_dish_id",
                 translation_placeholders={"dish_id": call.data["dish_id"]},
             ) from err
+        async_dispatcher_send(hass, SIGNAL_DISH_LIBRARY_UPDATED)
 
     async def get_dishes(_call: ServiceCall) -> ServiceResponse:
         dishes = entry.runtime_data.dish_library.all_dishes()

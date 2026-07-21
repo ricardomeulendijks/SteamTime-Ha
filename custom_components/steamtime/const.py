@@ -15,6 +15,10 @@ EVENT_SESSION_CANCELLED = "steamtime_session_cancelled"
 # Dispatcher signal for entities to refresh from SessionManager.state.
 SIGNAL_SESSION_UPDATED = f"{DOMAIN}_session_updated"
 
+# Dispatcher signal for the dish-library sensor to refresh after a mutation
+# (design §12) — feeds the custom Lovelace card reactively via hass.states.
+SIGNAL_DISH_LIBRARY_UPDATED = f"{DOMAIN}_dish_library_updated"
+
 # Services — public API (design §6), breaking changes must be flagged.
 SERVICE_START_SESSION = "start_session"
 SERVICE_CONFIRM_DISH = "confirm_dish"
@@ -40,3 +44,13 @@ DISH_DEFAULT_CATEGORY = "other"
 # entry.options keys for the built-in notification path (design §7, §8).
 CONF_NOTIFY_TARGETS = "notify_targets"
 CONF_CRITICAL_ADD_ALERTS = "critical_add_alerts"
+
+# Custom Lovelace card static assets (design §12). Registered once per HA
+# process (see frontend.py) — not per config entry, since re-registering the
+# same static path on an options-flow reload would raise.
+FRONTEND_CARD_URL_BASE = "/steamtime/static"
+FRONTEND_CARD_FILENAME = "steamtime-card.js"
+# Bump on every steamtime-card.js change so browsers fetch the new file
+# instead of serving a stale cached copy — independent of manifest.json's
+# Python package version, which changes on a different cadence.
+FRONTEND_CARD_VERSION = "1"

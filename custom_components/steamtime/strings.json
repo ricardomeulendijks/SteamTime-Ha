@@ -57,6 +57,9 @@
             },
             "next_done": {
                 "name": "Next done"
+            },
+            "dish_library": {
+                "name": "Dish library"
             }
         },
         "binary_sensor": {

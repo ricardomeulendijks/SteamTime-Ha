@@ -15,13 +15,13 @@
 | US-7 Single-dish session | **Kept** | Same engine path, n = 1, no special-casing (design §3.1) |
 | US-8 Multi-dish session | **Kept** | `steamtime.start_session` (design §6) |
 | US-9 Auto-sequencing | **Kept verbatim** | `plannedOffset_i = t_1 − t_i`, longest first (design §3.1) |
-| US-10 Live status view | **Transformed** | `sensor.steamtime_session` `dishes` attribute + timestamp sensors for countdowns (design §4). Rendering is a dashboard concern; no custom frontend for the POC |
+| US-10 Live status view | **Transformed** | `sensor.steamtime_session` `dishes` attribute + timestamp sensors for countdowns (design §4), renderable on any dashboard. As of design v1.5, the optional custom card (design §12) also renders this directly — a post-POC addition, not a reversal of the "rendering is a dashboard concern" default |
 | US-11 "Add next dish" alert | **Kept** | `steamtime_add_dish` event → blueprint notification (design §6, §7) |
 | US-12 Confirm dish added | **Kept** | `steamtime.confirm_dish` service, `button.steamtime_confirm`, and the blueprint's actionable-notification button — all three land on the same command (design §4, §6, §7) |
 | US-13 Late-add handling | **Kept verbatim** | `doneAt` from own `confirmedAt`; other dishes untouched (design §3.2) |
 | US-14 "Dish done" alert | **Kept** | `steamtime_dish_done` event → blueprint (design §6, §7) |
 | US-15 Reliable background alerts | **Dissolved** | The PRD's highest technical risk does not exist on a server platform. Residual analog: alerts must survive an HA restart — restore-and-fast-forward (design §5), and the notification round trip is the new week-1 spike (design §11) |
-| US-16 Favorites | **Dropped** | Favorites existed for quick access in an app UI that no longer exists. HA-side equivalents (scripts wrapping `start_session` for frequent combos, dashboard buttons) are better and free. Revisit only if a custom frontend is ever built |
+| US-16 Favorites | **Dropped** | Favorites existed for quick access in an app UI that no longer exists. HA-side equivalents (scripts wrapping `start_session` for frequent combos, dashboard buttons) are better and free. A custom card now exists (design §12, v1.5) — its original "revisit only if a custom frontend is ever built" condition is technically met, but favorites were not part of that request and stay dropped until explicitly asked for, not added under cover of this change |
 | US-17 Auto session history | **Kept** | History store, frozen snapshots at completion, cancellations never logged (design §3.3, §5) |
 | US-18 Restart past session | **Kept** | `steamtime.restart_session(history_id)` (design §6) |
 | US-19 Cross-device sync | **Dropped** | Every HA frontend already shows the same server state; nothing to build |

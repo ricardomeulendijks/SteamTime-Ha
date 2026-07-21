@@ -6,7 +6,11 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.const import EntityCategory
+from homeassistant.core import callback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
+from .const import SIGNAL_DISH_LIBRARY_UPDATED
 from .engine import Dish, DishStatus, SessionState
 from .entity import SteamTimeEntity
 from .localization import resolve_dish_name
@@ -23,12 +27,13 @@ async def async_setup_entry(
     entry: SteamTimeConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up the session, next-add, and next-done sensors."""
+    """Set up the session, next-add, next-done, and dish-library sensors."""
     async_add_entities(
         [
             SteamTimeSessionSensor(entry),
             SteamTimeNextAddSensor(entry),
             SteamTimeNextDoneSensor(entry),
+            SteamTimeDishLibrarySensor(entry),
         ]
     )
 
@@ -176,4 +181,61 @@ class SteamTimeNextDoneSensor(SteamTimeEntity, SensorEntity):
             "dish_name": resolve_dish_name(
                 dish.name_en, dish.name_nl, self.hass.config.language
             ),
+        }
+
+
+class SteamTimeDishLibrarySensor(SteamTimeEntity, SensorEntity):
+    """
+    The merged dish library, for the custom Lovelace card (design §12).
+
+    Read-only mirror of `DishLibraryStore.all_dishes()`; feeds the card
+    reactively via `hass.states` instead of the card polling `get_dishes`.
+    Updates via `SIGNAL_DISH_LIBRARY_UPDATED`, not the session-wide
+    `SIGNAL_SESSION_UPDATED` every other entity here uses, since dish-library
+    mutations are unrelated to the live session.
+    """
+
+    _attr_translation_key = "dish_library"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, entry: SteamTimeConfigEntry) -> None:
+        """Set up the sensor for this config entry."""
+        super().__init__(entry.entry_id, "dish_library")
+        self._entry = entry
+
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to dish-library updates instead of session updates."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIGNAL_DISH_LIBRARY_UPDATED, self._handle_library_updated
+            )
+        )
+
+    @callback
+    def _handle_library_updated(self) -> None:
+        """Re-render from the current dish library."""
+        self.async_write_ha_state()
+
+    @property
+    def native_value(self) -> int:
+        """The number of dishes in the library (predefined + custom)."""
+        return len(self._entry.runtime_data.dish_library.all_dishes())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """`dishes`: the merged library, each with its resolved display name."""
+        language = self.hass.config.language
+        return {
+            "dishes": [
+                {
+                    "id": dish["id"],
+                    "name": resolve_dish_name(
+                        dish["name_en"], dish["name_nl"], language
+                    ),
+                    "steam_minutes": dish["steam_minutes"],
+                    "temperature": dish["temperature"],
+                    "category": dish["category"],
+                }
+                for dish in self._entry.runtime_data.dish_library.all_dishes()
+            ]
         }

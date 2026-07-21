@@ -8,8 +8,11 @@ import pytest
 
 from custom_components.steamtime.const import (
     DOMAIN,
+    SERVICE_ADD_DISH,
     SERVICE_CONFIRM_DISH,
+    SERVICE_REMOVE_DISH,
     SERVICE_START_SESSION,
+    SERVICE_UPDATE_DISH,
 )
 
 if TYPE_CHECKING:
@@ -88,3 +91,61 @@ async def test_next_add_and_next_done_sensors_track_the_session(
     next_done = _state(hass, "sensor.steamtime_next_done")
     assert next_done.state != "unknown"
     assert next_done.attributes["dish_name"] == "Fish"
+
+
+@pytest.mark.usefixtures("entry")
+async def test_dish_library_sensor_reflects_predefined_dishes(
+    hass: HomeAssistant,
+) -> None:
+    state = _state(hass, "sensor.steamtime_dish_library")
+    assert state.state == "10"  # 10 placeholder predefined dishes
+    dishes = state.attributes["dishes"]
+    assert len(dishes) == 10
+    assert all(not d["id"].startswith("custom_") for d in dishes)
+
+
+@pytest.mark.usefixtures("entry")
+async def test_dish_library_sensor_updates_on_add_update_remove(
+    hass: HomeAssistant,
+) -> None:
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_ADD_DISH,
+        {"name": "Test Dish", "minutes": 12, "temperature": 95, "category": "other"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    state = _state(hass, "sensor.steamtime_dish_library")
+    assert state.state == "11"
+    added = next(d for d in state.attributes["dishes"] if d["name"] == "Test Dish")
+    assert added["id"].startswith("custom_")
+    assert added["steam_minutes"] == 12
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_UPDATE_DISH,
+        {
+            "dish_id": added["id"],
+            "name": "Test Dish Updated",
+            "minutes": 20,
+            "temperature": 95,
+            "category": "other",
+        },
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    state = _state(hass, "sensor.steamtime_dish_library")
+    updated = next(d for d in state.attributes["dishes"] if d["id"] == added["id"])
+    assert updated["name"] == "Test Dish Updated"
+    assert updated["steam_minutes"] == 20
+
+    await hass.services.async_call(
+        DOMAIN, SERVICE_REMOVE_DISH, {"dish_id": added["id"]}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    state = _state(hass, "sensor.steamtime_dish_library")
+    assert state.state == "10"
+    assert all(d["id"] != added["id"] for d in state.attributes["dishes"])

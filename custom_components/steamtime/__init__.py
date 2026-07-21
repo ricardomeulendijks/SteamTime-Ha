@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from homeassistant.const import Platform
 
 from .data import SteamTimeData
+from .frontend import async_register_frontend
 from .notifications import NotificationDispatcher
 from .services import async_setup_services, async_unload_services
 from .session_manager import SessionManager
@@ -19,6 +20,7 @@ from .storage import DishLibraryStore, HistoryStore, SessionStore
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.typing import ConfigType
 
     from .data import SteamTimeConfigEntry
 
@@ -27,6 +29,12 @@ PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
     Platform.BUTTON,
 ]
+
+
+async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
+    """Register the custom card's static assets once per HA process."""
+    await async_register_frontend(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: SteamTimeConfigEntry) -> bool:

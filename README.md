@@ -40,6 +40,7 @@ One device, **SteamTime**, holding:
 | `binary_sensor.steamtime_awaiting_confirmation` | On while >= 1 dish is waiting to be confirmed added |
 | `button.steamtime_confirm` | Confirms the oldest waiting dish — a convenience; `steamtime.confirm_dish` is the precise path |
 | `button.steamtime_cancel` | Cancels the session. **Disabled by default** — it's destructive; enable it deliberately and consider adding a dashboard confirmation |
+| `sensor.steamtime_dish_library` | Diagnostic sensor: dish count, plus a `dishes` attribute with the merged predefined + custom library. Feeds the custom card below — not meant to be read directly |
 
 ## Services
 
@@ -91,9 +92,28 @@ shipped automation **blueprint** instead (or as well):
 Cancelling a session clears any add-notifications still waiting on a reply, on
 either path.
 
-## Example dashboard card
+## Custom dashboard card
 
-A minimal Markdown card rendering live status from `sensor.steamtime_session`:
+A dedicated `steamtime-card` ships with the integration and loads automatically —
+no manual Lovelace resource to add. Add it to any dashboard:
+
+```yaml
+type: custom:steamtime-card
+```
+
+It gives you a dish checklist (with a per-dish minutes override) to start a
+session, an inline form to add/edit/remove your own custom dishes, a live view
+of the running session with a **Confirm added** button per dish, and a
+cancel-session button behind a two-step confirm. No further configuration —
+everything else is read from SteamTime's own entities and services.
+
+If it doesn't appear in the "+ Add Card" picker right after installing/updating,
+hard-refresh the browser tab (the card is a cached JS file).
+
+## Example dashboard card (plain YAML, no custom card)
+
+A minimal Markdown card rendering live status from `sensor.steamtime_session`,
+if you'd rather not use the custom card above:
 
 ```yaml
 type: markdown

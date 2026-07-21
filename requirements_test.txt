@@ -1,2 +1,9 @@
 pytest-homeassistant-custom-component==0.13.346
 mypy==1.19.1
+# Not in pytest-homeassistant-custom-component's own deps (it keeps the
+# default test env light for integrations that don't need it) — required
+# here because manifest.json now depends on "frontend" (design §12), which
+# imports this at setup. Every real HA instance already has it (frontend
+# powers the built-in UI); pin matches homeassistant==2026.7.2's own
+# frontend/manifest.json requirement.
+home-assistant-frontend==20260624.5
