@@ -179,6 +179,16 @@
 
     set hass(hass) {
       this._hass = hass;
+      try {
+        this._updateFromHass(hass);
+      } catch (err) {
+        this._showError(`Render error: ${this._describeError(err)}`);
+        // eslint-disable-next-line no-console
+        console.error("steamtime-card render error", err);
+      }
+    }
+
+    _updateFromHass(hass) {
       const session = hass.states[ENTITY_SESSION];
       const library = hass.states[ENTITY_DISH_LIBRARY];
 
